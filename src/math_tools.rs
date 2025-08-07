@@ -9,6 +9,8 @@ pub struct Point3 {
     values: (f64, f64, f64),
 }
 
+pub type Vec3 = Point3;
+
 impl Point3 {
     pub fn new(x: f64, y: f64, z: f64) -> Point3 {
         Point3 { values: (x, y, z) }
@@ -67,6 +69,16 @@ impl Point3 {
     }
 }
 
+/// This shouldn't be too slow since there are only
+/// three values to deep copy.
+impl Clone for Point3 {
+    fn clone(&self) -> Self {
+        Point3 {
+            values: (self.x(), self.y(), self.z()),
+        }
+    }
+}
+
 impl Display for Point3 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let v = self.values;
@@ -114,7 +126,7 @@ impl Add for Point3 {
         let v = self.values;
         let o = rhs.values;
         Point3 {
-            values: (v.0 + o.0, v.1 * o.1, v.2 * o.2),
+            values: (v.0 + o.0, v.1 + o.1, v.2 + o.2),
         }
     }
 }
@@ -229,7 +241,7 @@ impl Display for Color {
         let gbyte = (255.999 * g) as u32;
         let bbyte = (255.999 * b) as u32;
 
-        write!(f, "{} {} {}\n", rbyte, gbyte, bbyte)
+        write!(f, "{} {} {}", rbyte, gbyte, bbyte)
     }
 }
 
@@ -360,9 +372,9 @@ impl Mul<Color> for f64 {
         let mul_val = if self < 0.0 { -rhs } else { rhs };
         let pos_s = self.abs();
 
-        let mul_r = (pos_s + mul_val.r()).clamp(0.0, 1.0);
-        let mul_g = (pos_s + mul_val.g()).clamp(0.0, 1.0);
-        let mul_b = (pos_s + mul_val.b()).clamp(0.0, 1.0);
+        let mul_r = (pos_s * mul_val.r()).clamp(0.0, 1.0);
+        let mul_g = (pos_s * mul_val.g()).clamp(0.0, 1.0);
+        let mul_b = (pos_s * mul_val.b()).clamp(0.0, 1.0);
 
         Color {
             rgb: Point3 {
@@ -376,9 +388,9 @@ impl Mul for Color {
     type Output = Color;
 
     fn mul(self, rhs: Self) -> Self::Output {
-        let mul_r = (self.r() + rhs.r()).clamp(0.0, 1.0);
-        let mul_g = (self.g() + rhs.g()).clamp(0.0, 1.0);
-        let mul_b = (self.b() + rhs.b()).clamp(0.0, 1.0);
+        let mul_r = (self.r() * rhs.r()).clamp(0.0, 1.0);
+        let mul_g = (self.g() * rhs.g()).clamp(0.0, 1.0);
+        let mul_b = (self.b() * rhs.b()).clamp(0.0, 1.0);
 
         Color {
             rgb: Point3 {

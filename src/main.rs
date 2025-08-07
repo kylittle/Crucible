@@ -1,29 +1,26 @@
 use indicatif::ProgressBar;
-use ray_tracing::math_tools::*;
+use ray_tracing::environment::Camera;
 
 fn main() {
     // Image
 
-    let image_width = 256;
-    let image_height = 256;
+    let image_width: u32 = 1920;
+    let image_height: u32 = 1080;
 
     // Render
 
     println!("P3\n{image_width} {image_height}\n255");
 
-    let bar = ProgressBar::new(image_height * image_width);
+    let bar = ProgressBar::new((image_height * image_width).into());
+    let cam = Camera::new(16.0 / 9.0, image_width, 1.0, None);
 
     for j in 0..image_height {
         for i in 0..image_width {
             // decimal values for each color from 0.0 to 1.0
-            let i_decimal = i as f64;
-            let j_decimal = j as f64;
+            let p = cam.get_pixel_pos(i, j);
+            let c = cam.cast_ray(p);
 
-            let h = (image_height - 1) as f64;
-            let w = (image_width - 1) as f64;
-
-            let pixel_color = Color::new(i_decimal / w, j_decimal / h, 0.0);
-            println!("{}", -pixel_color * 0.5);
+            println!("{c}");
 
             bar.inc(1);
         }

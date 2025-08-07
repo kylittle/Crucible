@@ -496,7 +496,7 @@ mod tests {
     fn color_display_test() {
         let c = Color::new(0.529, 0.616, 0.730);
 
-        assert_eq!("135 157 186\n", c.to_string());
+        assert_eq!("135 157 186", c.to_string());
     }
 
     #[test]

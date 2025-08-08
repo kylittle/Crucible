@@ -2,13 +2,13 @@ use std::rc::Rc;
 
 use crate::{
     environment::Ray,
-    util::{Point3, Vec3},
+    util::{Interval, Point3, Vec3},
 };
 
 /// Contains information when a ray hits an object
 /// the location, the surface normal, and the location
 /// on the ray where the hit occured.
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct HitRecord {
     loc: Point3,
     normal: Vec3,
@@ -24,6 +24,23 @@ impl HitRecord {
     /// unit length. It is not normalized here to allow
     /// math based optimizations at the geometry level.
     pub unsafe fn new(hit_ray: &Ray, loc: Point3, normal: Vec3, t: f64) -> HitRecord {
+        let front_face = hit_ray.direction().dot(&normal) < 0.0;
+        let new_normal = if front_face { normal } else { -normal };
+
+        HitRecord {
+            loc,
+            normal: new_normal,
+            t,
+            front_face,
+        }
+    }
+
+    /// Function that builds a safe HitRecord. This differs from
+    /// the unsafe variant my making sure the normal is a unit vector
+    /// this is expensive and if there are math tricks available the unsafe
+    /// variant may be better
+    pub fn safe_new(hit_ray: &Ray, loc: Point3, normal: Vec3, t: f64) -> HitRecord {
+        let normal = normal.unit_vector();
         let front_face = hit_ray.direction().dot(&normal) < 0.0;
         let new_normal = if front_face { normal } else { -normal };
 
@@ -53,7 +70,7 @@ impl HitRecord {
 /// captures the hit data in rec and returns an option with some hit
 /// or none.
 pub trait Hittable {
-    fn hit(&self, r: &Ray, ray_tmin: f64, ray_tmax: f64) -> Option<HitRecord>;
+    fn hit(&self, r: &Ray, ray_t: &Interval) -> Option<HitRecord>;
 }
 
 /// The first object struct in the renderer. A sphere is
@@ -73,7 +90,7 @@ impl Sphere {
 }
 
 impl Hittable for Sphere {
-    fn hit(&self, r: &Ray, ray_tmin: f64, ray_tmax: f64) -> Option<HitRecord> {
+    fn hit(&self, r: &Ray, ray_t: &Interval) -> Option<HitRecord> {
         let oc = self.center.clone() - r.origin().clone(); // (C - P) part of the circle eqn
 
         // Quadratic formula
@@ -89,10 +106,10 @@ impl Hittable for Sphere {
 
         let sqrtd = discriminant.sqrt();
         let mut root = (h - sqrtd) / a; // here is a root
-        if root <= ray_tmin || ray_tmax <= root {
+        if !ray_t.surrounds(root) {
             // check if root is in acceptable range
             root = (h + sqrtd) / a; // here is the other one
-            if root <= ray_tmin || ray_tmax <= root {
+            if !ray_t.surrounds(root) {
                 return None; // No valid roots
             }
         }
@@ -135,12 +152,13 @@ impl HitList {
 }
 
 impl Hittable for HitList {
-    fn hit(&self, r: &Ray, ray_tmin: f64, ray_tmax: f64) -> Option<HitRecord> {
+    fn hit(&self, r: &Ray, ray_t: &Interval) -> Option<HitRecord> {
         let mut rec: Option<HitRecord> = None;
-        let mut closest = ray_tmax;
+        let mut closest = ray_t.max();
 
         for obj in self.objects.as_slice() {
-            if let Some(obj) = obj.hit(r, ray_tmin, closest) {
+            let new_interval = Interval::new(ray_t.min(), closest);
+            if let Some(obj) = obj.hit(r, &new_interval) {
                 closest = obj.t;
                 rec = Some(obj);
             }

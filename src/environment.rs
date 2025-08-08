@@ -1,8 +1,10 @@
 use std::{f64::INFINITY, u32};
 
+use indicatif::ProgressBar;
+
 use crate::{
-    objects::{Hittable},
-    util::{Color, Point3, Vec3},
+    objects::Hittable,
+    util::{Color, Interval, Point3, Vec3},
 };
 
 /// Ray represents a ray of light with a direction
@@ -73,20 +75,29 @@ pub struct Camera {
 impl Camera {
     /// Pass in None for the parameter camera_center to
     /// get (0, 0, 0) or specify your own center
+    /// *TODO*: make sure camera center actually works and add
+    /// support for camera rotations and movement
     pub fn new(
         aspect_ratio: f64,
         image_width: u32,
-        focal_length: f64,
-        center: Option<Point3>,
     ) -> Camera {
         let v = Viewport::new(aspect_ratio, image_width);
-        let cc = center.unwrap_or_else(|| Point3::origin());
+        let cc = Point3::new(0.0, 0.0, 0.0);
+        let focal_length = 1.0;
 
         Camera {
             viewport: v,
             focal_length,
             camera_center: cc,
         }
+    }
+
+    pub fn set_loc(&mut self, loc: Point3) {
+        self.camera_center = loc;
+    }
+
+    pub fn set_focal_length(&mut self, fl: f64) {
+        self.focal_length = fl;
     }
 
     // TODO: Inlined for efficiency might not work when
@@ -124,7 +135,8 @@ impl Camera {
     /// Compute the upper left hand corner. This uses the
     /// cameras position to move to the upper left. However
     /// the / 2.0 on the last two lines breaks generality of
-    /// camera position. TODO: Fix this
+    /// camera position. *TODO*: Fix this (maybe not? the viewport probably moves
+    /// with the camera right?)
     #[inline]
     fn viewport_upperleft(&self) -> Point3 {
         let cc = self.camera_center.clone();
@@ -140,44 +152,72 @@ impl Camera {
 
     /// The camera can take an ij pair in the image and
     /// calculate its position relative to the camera
-    pub fn get_pixel_pos(&self, i: u32, j: u32) -> Point3 {
+    fn get_pixel_pos(&self, i: u32, j: u32) -> Point3 {
         self.pixel_start_location()
             + (i as f64 * self.pixel_delta_u())
             + (j as f64 * self.pixel_delta_v())
     }
 
-    pub fn cast_ray<T: Hittable>(&self, pixel_loc: Point3, world: &T) -> Color {
+    fn cast_ray<T: Hittable>(&self, pixel_loc: Point3, world: &T) -> Color {
         let cc = self.camera_center.clone();
         let ray_dir = pixel_loc - cc.clone();
         let ray_cast = Ray::new(cc.clone(), ray_dir);
 
-        ray_color(ray_cast, world)
+        self.ray_color(ray_cast, world)
+    }
+
+    fn ray_color<T: Hittable>(&self, r: Ray, world: &T) -> Color {
+        let hit = world.hit(&r, &Interval::new(0.0, INFINITY));
+        if let Some(h) = hit {
+            let norm: Vec3 = h.normal();
+
+            // Make sure that rgb is between 0.0 and 1.0
+            let r = (0.5 * (norm.x() + 1.0)).clamp(0.0, 1.0);
+            let g = (0.5 * (norm.y() + 1.0)).clamp(0.0, 1.0);
+            let b = (0.5 * (norm.z() + 1.0)).clamp(0.0, 1.0);
+
+            return Color::new(r, g, b);
+        }
+
+        let unit_direction = r.direction().clone().unit_vector();
+        let a = 0.5 * (unit_direction.y() + 1.0);
+
+        (1.0 - a) * Color::white() + a * Color::new(0.5, 0.7, 1.0)
+    }
+
+    /// This causes the camera to render an image to stdout
+    /// TODO: possibly change this so it renders to a file based on an input
+    pub fn render<T: Hittable>(&self, world: &T) {
+        let iw = self.viewport.image_width;
+        let ih = self.viewport.image_height;
+
+        // Render
+
+        println!("P3\n{iw} {ih}\n255");
+
+        let bar = ProgressBar::new((ih * iw).into());
+
+        for j in 0..ih {
+            for i in 0..iw {
+                // decimal values for each color from 0.0 to 1.0
+                let p = self.get_pixel_pos(i, j);
+                let c = self.cast_ray(p, world);
+
+                println!("{c}");
+
+                bar.inc(1);
+            }
+        }
+
+        bar.finish();
     }
 }
 
 // Temp
-pub fn ray_color<T: Hittable>(r: Ray, world: &T) -> Color {
-    let hit = world.hit(&r, 0.0, INFINITY);
-    if let Some(h) = hit {
-        let norm: Vec3 = h.normal();
-
-        // Make sure that rgb is between 0.0 and 1.0
-        let r = (0.5 * (norm.x() + 1.0)).clamp(0.0, 1.0);
-        let g = (0.5 * (norm.y() + 1.0)).clamp(0.0, 1.0);
-        let b = (0.5 * (norm.z() + 1.0)).clamp(0.0, 1.0);
-
-        return Color::new(r, g, b);
-    }
-
-    let unit_direction = r.direction().clone().unit_vector();
-    let a = 0.5 * (unit_direction.y() + 1.0);
-
-    (1.0 - a) * Color::white() + a * Color::new(0.5, 0.7, 1.0)
-}
 
 #[cfg(test)]
 mod tests {
-    use crate::{environment::Ray, util::Point3};
+    use super::*;
 
     #[test]
     fn ray_at_test() {

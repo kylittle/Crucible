@@ -1,3 +1,4 @@
+use std::f64::INFINITY;
 use std::f64::consts::PI;
 use std::fmt::Display;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub};
@@ -418,6 +419,38 @@ impl Div<f64> for Color {
     }
 }
 
+pub struct Interval {
+    range: (f64, f64),
+}
+
+impl Interval {
+    pub const fn new(min: f64, max: f64) -> Interval {
+        Interval { range: (min, max) }
+    }
+
+    pub fn min(&self) -> f64 {
+        self.range.0
+    }
+    pub fn max(&self) -> f64 {
+        self.range.1
+    }
+
+    pub fn size(&self) -> f64 {
+        self.range.1 - self.range.0
+    }
+
+    pub fn contains(&self, x: f64) -> bool {
+        self.range.0 <= x && x <= self.range.1
+    }
+
+    pub fn surrounds(&self, x: f64) -> bool {
+        self.range.0 < x && x < self.range.1
+    }
+}
+
+pub const EMPTY: Interval = Interval::new(INFINITY, -INFINITY);
+pub const UNIVERSE: Interval = Interval::new(-INFINITY, INFINITY);
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -524,5 +557,70 @@ mod tests {
         r += g;
 
         assert_eq!(r, y);
+    }
+
+    #[test]
+    fn degrees_convert_test() {
+        let r = degrees_to_radians(59.2958);
+        // Accurate to about +- 2e-8
+        let tolerance = 0.0000000005;
+
+        assert!(
+            (r - 1.034906943).abs() < tolerance,
+            "Test is not in the accepted tolerance range"
+        );
+    }
+
+    #[test]
+    fn size_test() {
+        let i = Interval::new(3.0, 20.0);
+
+        assert_eq!(i.size(), 17.0);
+    }
+
+    #[test]
+    fn contains_test() {
+        let i = Interval::new(3.0, 20.0);
+
+        assert_eq!(i.contains(3.0), true);
+        assert_eq!(i.contains(21.0), false);
+        assert_eq!(i.contains(15.0), true);
+    }
+
+    #[test]
+    fn surrounds_test() {
+        let i = Interval::new(3.0, 20.0);
+
+        assert_eq!(i.surrounds(3.0), false);
+        assert_eq!(i.surrounds(21.0), false);
+        assert_eq!(i.surrounds(15.0), true);
+    }
+
+    #[test]
+    fn universe_contains_test() {
+        use rand::prelude::*;
+
+        let mut rng = rand::rng();
+
+        // The universe should contain everything:
+        for _ in 0..10 {
+            let x: f64 = rng.random();
+
+            assert!(UNIVERSE.contains(x));
+        }
+    }
+
+    #[test]
+    fn empty_contains_test() {
+        use rand::prelude::*;
+
+        let mut rng = rand::rng();
+
+        // The universe should contain everything:
+        for _ in 0..10 {
+            let x: f64 = rng.random();
+
+            assert!(!EMPTY.contains(x));
+        }
     }
 }

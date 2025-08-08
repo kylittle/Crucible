@@ -1,5 +1,12 @@
+use std::f64::consts::PI;
 use std::fmt::Display;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub};
+
+/// Utility function to convert degrees to radians
+#[inline]
+pub fn degrees_to_radians(degrees: f64) -> f64 {
+    degrees * PI / 180.0
+}
 
 /// Private type without an external api
 /// API will be exposed through the Color

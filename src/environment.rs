@@ -1,6 +1,9 @@
-use std::u32;
+use std::{f64::INFINITY, u32};
 
-use crate::math_tools::{Color, Point3, Vec3};
+use crate::{
+    objects::{Hittable},
+    util::{Color, Point3, Vec3},
+};
 
 /// Ray represents a ray of light with a direction
 /// and a starting point. Currently this takes ownership
@@ -86,9 +89,10 @@ impl Camera {
         }
     }
 
-    // TODO: Efficiency? this is clean but it introduces
-    // computational overhead
+    // TODO: Inlined for efficiency might not work when
+    // the camera can move
     /// Vector representing the horizontal viewport edge
+    #[inline]
     fn viewport_u(&self) -> Vec3 {
         Vec3::new(self.viewport.viewport_width, 0.0, 0.0)
     }
@@ -96,6 +100,7 @@ impl Camera {
     /// Vector representing the vertical viewport edge. It is
     /// negative since the coordinate for the image are opposite
     /// to the camera (we want our vec to point down)
+    #[inline]
     fn viewport_v(&self) -> Vec3 {
         Vec3::new(0.0, -self.viewport.viewport_height, 0.0)
     }
@@ -103,6 +108,7 @@ impl Camera {
     /// Subdivide the length of our viewport by pixels
     /// this gets the vector between two pixels in the
     /// x-axis.
+    #[inline]
     fn pixel_delta_u(&self) -> Vec3 {
         self.viewport_u() / self.viewport.image_width as f64
     }
@@ -110,6 +116,7 @@ impl Camera {
     /// Subdivide the length of our viewport by pixels
     /// this gets the vector between two pixels in the
     /// y-axis.
+    #[inline]
     fn pixel_delta_v(&self) -> Vec3 {
         self.viewport_v() / self.viewport.image_height as f64
     }
@@ -118,6 +125,7 @@ impl Camera {
     /// cameras position to move to the upper left. However
     /// the / 2.0 on the last two lines breaks generality of
     /// camera position. TODO: Fix this
+    #[inline]
     fn viewport_upperleft(&self) -> Point3 {
         let cc = self.camera_center.clone();
         cc - Point3::new(0.0, 0.0, self.focal_length)
@@ -125,6 +133,7 @@ impl Camera {
             - self.viewport_v() / 2.0
     }
 
+    #[inline]
     fn pixel_start_location(&self) -> Point3 {
         self.viewport_upperleft() + 0.5 * (self.pixel_delta_u() + self.pixel_delta_v())
     }
@@ -137,17 +146,29 @@ impl Camera {
             + (j as f64 * self.pixel_delta_v())
     }
 
-    pub fn cast_ray(&self, pixel_loc: Point3) -> Color {
+    pub fn cast_ray<T: Hittable>(&self, pixel_loc: Point3, world: &T) -> Color {
         let cc = self.camera_center.clone();
         let ray_dir = pixel_loc - cc.clone();
         let ray_cast = Ray::new(cc.clone(), ray_dir);
 
-        ray_color(ray_cast)
+        ray_color(ray_cast, world)
     }
 }
 
 // Temp
-pub fn ray_color(r: Ray) -> Color {
+pub fn ray_color<T: Hittable>(r: Ray, world: &T) -> Color {
+    let hit = world.hit(&r, 0.0, INFINITY);
+    if let Some(h) = hit {
+        let norm: Vec3 = h.normal();
+
+        // Make sure that rgb is between 0.0 and 1.0
+        let r = (0.5 * (norm.x() + 1.0)).clamp(0.0, 1.0);
+        let g = (0.5 * (norm.y() + 1.0)).clamp(0.0, 1.0);
+        let b = (0.5 * (norm.z() + 1.0)).clamp(0.0, 1.0);
+
+        return Color::new(r, g, b);
+    }
+
     let unit_direction = r.direction().clone().unit_vector();
     let a = 0.5 * (unit_direction.y() + 1.0);
 
@@ -156,7 +177,7 @@ pub fn ray_color(r: Ray) -> Color {
 
 #[cfg(test)]
 mod tests {
-    use crate::{environment::Ray, math_tools::Point3};
+    use crate::{environment::Ray, util::Point3};
 
     #[test]
     fn ray_at_test() {

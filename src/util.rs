@@ -245,9 +245,9 @@ impl Display for Color {
         let g = self.g();
         let b = self.b();
 
-        let rbyte = (255.999 * r) as u32;
-        let gbyte = (255.999 * g) as u32;
-        let bbyte = (255.999 * b) as u32;
+        let rbyte = (255.0 * r) as u32;
+        let gbyte = (255.0 * g) as u32;
+        let bbyte = (255.0 * b) as u32;
 
         write!(f, "{} {} {}", rbyte, gbyte, bbyte)
     }
@@ -446,6 +446,10 @@ impl Interval {
     pub fn surrounds(&self, x: f64) -> bool {
         self.range.0 < x && x < self.range.1
     }
+
+    pub fn clamp(&self, x: f64) -> f64 {
+        x.clamp(self.min(), self.max())
+    }
 }
 
 pub const EMPTY: Interval = Interval::new(INFINITY, -INFINITY);
@@ -536,7 +540,7 @@ mod tests {
     fn color_display_test() {
         let c = Color::new(0.529, 0.616, 0.730);
 
-        assert_eq!("135 157 186", c.to_string());
+        assert_eq!("134 157 186", c.to_string());
     }
 
     #[test]
@@ -604,7 +608,7 @@ mod tests {
 
         // The universe should contain everything:
         for _ in 0..10 {
-            let x: f64 = rng.random();
+            let x: f64 = rng.random_range(-500.0..500.0);
 
             assert!(UNIVERSE.contains(x));
         }
@@ -618,7 +622,7 @@ mod tests {
 
         // The universe should contain everything:
         for _ in 0..10 {
-            let x: f64 = rng.random();
+            let x: f64 = rng.random_range(-500.0..500.0);
 
             assert!(!EMPTY.contains(x));
         }

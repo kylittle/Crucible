@@ -1,6 +1,7 @@
-use std::{f64::INFINITY, u32};
+use std::f64::INFINITY;
 
 use indicatif::ProgressBar;
+use rand::Rng;
 
 use crate::{
     objects::Hittable,
@@ -70,6 +71,12 @@ pub struct Camera {
     viewport: Viewport,
     focal_length: f64,
     camera_center: Point3,
+    samples: u32,
+    sampling_method: SamplingMethod,
+}
+
+pub enum SamplingMethod {
+    Square,
 }
 
 impl Camera {
@@ -77,27 +84,44 @@ impl Camera {
     /// get (0, 0, 0) or specify your own center
     /// *TODO*: make sure camera center actually works and add
     /// support for camera rotations and movement
-    pub fn new(
-        aspect_ratio: f64,
-        image_width: u32,
-    ) -> Camera {
+    pub fn new(aspect_ratio: f64, image_width: u32) -> Camera {
         let v = Viewport::new(aspect_ratio, image_width);
         let cc = Point3::new(0.0, 0.0, 0.0);
         let focal_length = 1.0;
+        let samples = 10;
+        let sampling_method = SamplingMethod::Square;
 
         Camera {
             viewport: v,
             focal_length,
             camera_center: cc,
+            samples,
+            sampling_method
         }
     }
 
+    /// Sets the cameras center position in the image
     pub fn set_loc(&mut self, loc: Point3) {
         self.camera_center = loc;
     }
 
+    /// Sets the cameras distance from the viewport
     pub fn set_focal_length(&mut self, fl: f64) {
         self.focal_length = fl;
+    }
+
+    /// Sets the number of samples. This option can be
+    /// expensive so set to a high value with caution.
+    /// 
+    /// #Panics:
+    /// This panics if s is not a positive integer.
+    pub fn set_samples(&mut self, s: u32) {
+        assert!(
+            s > 0,
+            "The camera must have a positive number of samples. {s} is invalid."
+        );
+
+        self.samples = s;
     }
 
     // TODO: Inlined for efficiency might not work when
@@ -152,18 +176,34 @@ impl Camera {
 
     /// The camera can take an ij pair in the image and
     /// calculate its position relative to the camera
-    fn get_pixel_pos(&self, i: u32, j: u32) -> Point3 {
+    fn get_pixel_pos(&self, i: u32, j: u32, offset: Point3) -> Point3 {
         self.pixel_start_location()
-            + (i as f64 * self.pixel_delta_u())
-            + (j as f64 * self.pixel_delta_v())
+            + ((i as f64 + offset.x()) * self.pixel_delta_u())
+            + ((j as f64 + offset.y()) * self.pixel_delta_v())
     }
 
-    fn cast_ray<T: Hittable>(&self, pixel_loc: Point3, world: &T) -> Color {
+    fn cast_ray<T: Hittable>(&self, render_i: u32, render_j: u32, world: &T) -> Color {
         let cc = self.camera_center.clone();
-        let ray_dir = pixel_loc - cc.clone();
-        let ray_cast = Ray::new(cc.clone(), ray_dir);
 
-        self.ray_color(ray_cast, world)
+        // Store the colors from each sample
+        let mut sample_colors = Vec::new();
+
+        // loop and sample
+        for _ in 0..self.samples {
+            // Sample based on the method
+            let offset = match self.sampling_method {
+                SamplingMethod::Square => sample_square(),
+            };
+
+            let ps = self.get_pixel_pos(render_i, render_j, offset);
+
+            let ray_dir = ps - cc.clone();
+            let ray_cast = Ray::new(cc.clone(), ray_dir);
+
+            sample_colors.push(self.ray_color(ray_cast, world));
+        }
+
+        average_samples(sample_colors)
     }
 
     fn ray_color<T: Hittable>(&self, r: Ray, world: &T) -> Color {
@@ -200,10 +240,9 @@ impl Camera {
         for j in 0..ih {
             for i in 0..iw {
                 // decimal values for each color from 0.0 to 1.0
-                let p = self.get_pixel_pos(i, j);
-                let c = self.cast_ray(p, world);
+                let c = self.cast_ray(i, j, world);
 
-                println!("{c}");
+                println!("{c}"); // TODO: Output to a file
 
                 bar.inc(1);
             }
@@ -213,7 +252,39 @@ impl Camera {
     }
 }
 
-// Temp
+// Helper functions
+fn average_samples(sample_colors: Vec<Color>) -> Color {
+    let mut r_tot = 0.0;
+    let mut g_tot = 0.0;
+    let mut b_tot = 0.0;
+
+    let sample_count = sample_colors.len();
+
+    for col in sample_colors {
+        r_tot += col.r();
+        g_tot += col.g();
+        b_tot += col.b();
+    }
+
+    // Take the average
+    r_tot /= sample_count as f64;
+    g_tot /= sample_count as f64;
+    b_tot /= sample_count as f64;
+
+    Color::new(r_tot, g_tot, b_tot)
+}
+
+/// Later change sampling so I can modify the sampling method
+/// to test different effects on image quality
+#[inline]
+fn sample_square() -> Vec3 {
+    // TODO: RNG may be too slow. But it is thread safe for the future
+    let mut rng = rand::rng();
+    let x = rng.random::<f64>() - 0.5;
+    let y = rng.random::<f64>() - 0.5;
+
+    Vec3::new(x, y, 0.0)
+}
 
 #[cfg(test)]
 mod tests {
@@ -224,5 +295,14 @@ mod tests {
         let r = Ray::new(Point3::origin(), Point3::new(2.0, -3.0, 1.5));
 
         assert_eq!(r.at(2.0), Point3::new(4.0, -6.0, 3.0));
+    }
+
+    #[test]
+    fn average_color_test() {
+        let cv = vec![Color::new(0.0, 1.0, 0.0), Color::new(0.5, 0.5, 1.0)];
+
+        let c = average_samples(cv);
+
+        assert_eq!(c, Color::new(0.25, 0.75, 0.5));
     }
 }

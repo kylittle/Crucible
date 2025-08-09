@@ -1,4 +1,3 @@
-use std::f64::INFINITY;
 use std::f64::consts::PI;
 use std::fmt::Display;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub};
@@ -78,7 +77,7 @@ impl Point3 {
     }
 
     /// Compute the reflection of a vector across the normal
-    pub fn reflect_vec3(v: &Vec3, norm: &Vec3) -> Vec3{
+    pub fn reflect_vec3(v: &Vec3, norm: &Vec3) -> Vec3 {
         v.clone() - 2.0 * v.dot(norm) * norm.clone()
     }
 
@@ -181,7 +180,7 @@ impl MulAssign<f64> for Point3 {
 
 impl DivAssign<f64> for Point3 {
     fn div_assign(&mut self, rhs: f64) {
-        return *self *= 1.0 / rhs;
+        *self *= 1.0 / rhs
     }
 }
 
@@ -324,7 +323,7 @@ impl Display for Color {
         let gbyte = (255.0 * g) as u32;
         let bbyte = (255.0 * b) as u32;
 
-        write!(f, "{} {} {}", rbyte, gbyte, bbyte)
+        write!(f, "{rbyte} {gbyte} {bbyte}")
     }
 }
 
@@ -401,7 +400,7 @@ impl MulAssign<f64> for Color {
 
 impl DivAssign<f64> for Color {
     fn div_assign(&mut self, rhs: f64) {
-        return *self *= 1.0 / rhs;
+        *self *= 1.0 / rhs
     }
 }
 
@@ -534,8 +533,8 @@ impl Interval {
     }
 }
 
-pub const EMPTY: Interval = Interval::new(INFINITY, -INFINITY);
-pub const UNIVERSE: Interval = Interval::new(-INFINITY, INFINITY);
+pub const EMPTY: Interval = Interval::new(f64::INFINITY, -f64::INFINITY);
+pub const UNIVERSE: Interval = Interval::new(-f64::INFINITY, f64::INFINITY);
 
 #[cfg(test)]
 mod tests {

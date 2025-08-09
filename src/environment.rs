@@ -1,5 +1,3 @@
-use std::f64::INFINITY;
-
 use indicatif::ProgressBar;
 use rand::Rng;
 
@@ -215,38 +213,10 @@ impl Camera {
             let ray_dir = ps - cc.clone();
             let ray_cast = Ray::new(cc.clone(), ray_dir);
 
-            sample_colors.push(self.ray_color(ray_cast, max_depth, world));
+            sample_colors.push(ray_color(ray_cast, max_depth, world));
         }
 
         average_samples(sample_colors)
-    }
-
-    fn ray_color<T: Hittable>(&self, r: Ray, depth: u32, world: &T) -> Color {
-        // If we have reached the max bounces we no longer
-        // gather color contribution
-        if depth == 0 {
-            return Color::black();
-        }
-
-        // The interval starts at 0.001 to fix the 'shadow acne' behavior
-        let hit = world.hit(&r, &Interval::new(0.001, INFINITY));
-
-        if let Some(h) = hit {
-            let mut attenuation = Color::black();
-
-            let scatter = h.material().scatter(&r, &h, &mut attenuation);
-
-            if let Some(s) = scatter {
-                return attenuation * self.ray_color(s, depth - 1, world);
-            }
-
-            return Color::black();
-        }
-
-        let unit_direction = r.direction().clone().unit_vector();
-        let a = 0.5 * (unit_direction.y() + 1.0);
-
-        (1.0 - a) * Color::white() + a * Color::new(0.5, 0.7, 1.0)
     }
 
     /// This causes the camera to render an image to stdout
@@ -277,6 +247,34 @@ impl Camera {
 }
 
 // Helper functions
+fn ray_color<T: Hittable>(r: Ray, depth: u32, world: &T) -> Color {
+    // If we have reached the max bounces we no longer
+    // gather color contribution
+    if depth == 0 {
+        return Color::black();
+    }
+
+    // The interval starts at 0.001 to fix the 'shadow acne' behavior
+    let hit = world.hit(&r, &Interval::new(0.001, f64::INFINITY));
+
+    if let Some(h) = hit {
+        let mut attenuation = Color::black();
+
+        let scatter = h.material().scatter(&r, &h, &mut attenuation);
+
+        if let Some(s) = scatter {
+            return attenuation * ray_color(s, depth - 1, world);
+        }
+
+        return Color::black();
+    }
+
+    let unit_direction = r.direction().clone().unit_vector();
+    let a = 0.5 * (unit_direction.y() + 1.0);
+
+    (1.0 - a) * Color::white() + a * Color::new(0.5, 0.7, 1.0)
+}
+
 fn average_samples(sample_colors: Vec<Color>) -> Color {
     let mut r_tot = 0.0;
     let mut g_tot = 0.0;

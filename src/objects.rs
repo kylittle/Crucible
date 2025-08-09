@@ -20,7 +20,7 @@ pub struct HitRecord {
 impl HitRecord {
     /// Function builds a new HitRecord.
     ///
-    /// #Safety:
+    /// # Safety
     /// This function is unsafe if the normal is not of
     /// unit length. It is not normalized here to allow
     /// math based optimizations at the geometry level.
@@ -37,7 +37,7 @@ impl HitRecord {
         HitRecord {
             loc,
             normal: new_normal,
-            mat: mat,
+            mat,
             t,
             front_face,
         }
@@ -61,7 +61,7 @@ impl HitRecord {
         HitRecord {
             loc,
             normal: new_normal,
-            mat: mat,
+            mat,
             t,
             front_face,
         }
@@ -170,6 +170,12 @@ impl HitList {
         T: Hittable + 'static,
     {
         self.objects.push(Rc::new(obj));
+    }
+}
+
+impl Default for HitList {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

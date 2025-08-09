@@ -3,6 +3,8 @@ use std::f64::consts::PI;
 use std::fmt::Display;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub};
 
+use rand::Rng;
+
 /// Utility function to convert degrees to radians
 #[inline]
 pub fn degrees_to_radians(degrees: f64) -> f64 {
@@ -20,14 +22,64 @@ pub struct Point3 {
 pub type Vec3 = Point3;
 
 impl Point3 {
+    /// Creates a new Point3 with parameterized values.
     pub fn new(x: f64, y: f64, z: f64) -> Point3 {
         Point3 { values: (x, y, z) }
     }
 
+    /// Creates the point (0, 0, 0)
     pub fn origin() -> Point3 {
         Point3 {
             values: (0.0, 0.0, 0.0),
         }
+    }
+
+    /// Randomly generate a vector with x, y, and z between [0, 1)
+    pub fn random_vec3() -> Vec3 {
+        let mut rng = rand::rng();
+
+        let x = rng.random();
+        let y = rng.random();
+        let z = rng.random();
+
+        Vec3::new(x, y, z)
+    }
+
+    /// Randomly generate a vector with x, y, and z between [min, max)
+    pub fn random_vec3_range(min: f64, max: f64) -> Vec3 {
+        let mut rng = rand::rng();
+
+        let x = rng.random_range(min..max);
+        let y = rng.random_range(min..max);
+        let z = rng.random_range(min..max);
+
+        Vec3::new(x, y, z)
+    }
+
+    /// Randomly generate a unit vector.
+    pub fn random_unit_vector() -> Vec3 {
+        loop {
+            let p = Vec3::random_vec3_range(-1.0, 1.0);
+            let lensq = p.length_squared();
+
+            if 1e-160 < lensq && lensq <= 1.0 {
+                return p / lensq.sqrt();
+            }
+        }
+    }
+
+    pub fn random_on_hemisphere(normal: &Vec3) -> Vec3 {
+        let on_unit_sphere = Vec3::random_unit_vector();
+        if on_unit_sphere.dot(normal) > 0.0 {
+            on_unit_sphere // same direction
+        } else {
+            -on_unit_sphere // opposite direction so invert
+        }
+    }
+
+    /// Compute the reflection of a vector across the normal
+    pub fn reflect_vec3(v: &Vec3, norm: &Vec3) -> Vec3{
+        v.clone() - 2.0 * v.dot(norm) * norm.clone()
     }
 
     pub fn x(&self) -> f64 {
@@ -49,6 +101,12 @@ impl Point3 {
     pub fn length_squared(&self) -> f64 {
         let v = self.values;
         v.0.powi(2) + v.1.powi(2) + v.2.powi(2)
+    }
+
+    /// Checks if a vector is too close to zero in all dimensions
+    pub fn near_zero(&self) -> bool {
+        let tolerance = 1e-8;
+        self.x().abs() < tolerance && self.y().abs() < tolerance && self.z().abs() < tolerance
     }
 
     pub fn dot(&self, other: &Point3) -> f64 {
@@ -235,6 +293,19 @@ impl Color {
     pub fn b(&self) -> f64 {
         self.rgb.z()
     }
+
+    // Helper function for output
+    fn linear_to_gamma(linear_component: f64) -> f64 {
+        linear_component.sqrt()
+    }
+}
+
+impl Clone for Color {
+    fn clone(&self) -> Self {
+        Color {
+            rgb: self.rgb.clone(),
+        }
+    }
 }
 
 /// Implement display to convert a color to an RGB line for
@@ -244,6 +315,10 @@ impl Display for Color {
         let r = self.r();
         let g = self.g();
         let b = self.b();
+
+        let r = Color::linear_to_gamma(r);
+        let g = Color::linear_to_gamma(g);
+        let b = Color::linear_to_gamma(b);
 
         let rbyte = (255.0 * r) as u32;
         let gbyte = (255.0 * g) as u32;
@@ -417,6 +492,13 @@ impl Div<f64> for Color {
 
         (1.0 / rhs) * inv_self
     }
+}
+
+/// Randomly generate a color
+pub fn random_color() -> Color {
+    let v = Vec3::random_vec3();
+
+    Color::new(v.x(), v.y(), v.z())
 }
 
 pub struct Interval {

@@ -73,6 +73,7 @@ pub struct Camera {
     camera_center: Point3,
     samples: u32,
     sampling_method: SamplingMethod,
+    max_depth: u32,
 }
 
 pub enum SamplingMethod {
@@ -90,13 +91,15 @@ impl Camera {
         let focal_length = 1.0;
         let samples = 10;
         let sampling_method = SamplingMethod::Square;
+        let max_depth = 10;
 
         Camera {
             viewport: v,
             focal_length,
             camera_center: cc,
             samples,
-            sampling_method
+            sampling_method,
+            max_depth,
         }
     }
 
@@ -112,7 +115,7 @@ impl Camera {
 
     /// Sets the number of samples. This option can be
     /// expensive so set to a high value with caution.
-    /// 
+    ///
     /// #Panics:
     /// This panics if s is not a positive integer.
     pub fn set_samples(&mut self, s: u32) {
@@ -122,6 +125,12 @@ impl Camera {
         );
 
         self.samples = s;
+    }
+
+    /// Sets the number of how many recursive calls the renderer
+    /// will make when a ray bounces off a surface
+    pub fn set_max_depth(&mut self, md: u32) {
+        self.max_depth = md;
     }
 
     // TODO: Inlined for efficiency might not work when
@@ -182,7 +191,13 @@ impl Camera {
             + ((j as f64 + offset.y()) * self.pixel_delta_v())
     }
 
-    fn cast_ray<T: Hittable>(&self, render_i: u32, render_j: u32, world: &T) -> Color {
+    fn cast_ray<T: Hittable>(
+        &self,
+        render_i: u32,
+        render_j: u32,
+        max_depth: u32,
+        world: &T,
+    ) -> Color {
         let cc = self.camera_center.clone();
 
         // Store the colors from each sample
@@ -200,23 +215,32 @@ impl Camera {
             let ray_dir = ps - cc.clone();
             let ray_cast = Ray::new(cc.clone(), ray_dir);
 
-            sample_colors.push(self.ray_color(ray_cast, world));
+            sample_colors.push(self.ray_color(ray_cast, max_depth, world));
         }
 
         average_samples(sample_colors)
     }
 
-    fn ray_color<T: Hittable>(&self, r: Ray, world: &T) -> Color {
-        let hit = world.hit(&r, &Interval::new(0.0, INFINITY));
+    fn ray_color<T: Hittable>(&self, r: Ray, depth: u32, world: &T) -> Color {
+        // If we have reached the max bounces we no longer
+        // gather color contribution
+        if depth == 0 {
+            return Color::black();
+        }
+
+        // The interval starts at 0.001 to fix the 'shadow acne' behavior
+        let hit = world.hit(&r, &Interval::new(0.001, INFINITY));
+
         if let Some(h) = hit {
-            let norm: Vec3 = h.normal();
+            let mut attenuation = Color::black();
 
-            // Make sure that rgb is between 0.0 and 1.0
-            let r = (0.5 * (norm.x() + 1.0)).clamp(0.0, 1.0);
-            let g = (0.5 * (norm.y() + 1.0)).clamp(0.0, 1.0);
-            let b = (0.5 * (norm.z() + 1.0)).clamp(0.0, 1.0);
+            let scatter = h.material().scatter(&r, &h, &mut attenuation);
 
-            return Color::new(r, g, b);
+            if let Some(s) = scatter {
+                return attenuation * self.ray_color(s, depth - 1, world);
+            }
+
+            return Color::black();
         }
 
         let unit_direction = r.direction().clone().unit_vector();
@@ -240,7 +264,7 @@ impl Camera {
         for j in 0..ih {
             for i in 0..iw {
                 // decimal values for each color from 0.0 to 1.0
-                let c = self.cast_ray(i, j, world);
+                let c = self.cast_ray(i, j, self.max_depth, world);
 
                 println!("{c}"); // TODO: Output to a file
 

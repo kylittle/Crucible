@@ -2,16 +2,17 @@ use std::rc::Rc;
 
 use crate::{
     environment::Ray,
+    material::Material,
     util::{Interval, Point3, Vec3},
 };
 
 /// Contains information when a ray hits an object
 /// the location, the surface normal, and the location
 /// on the ray where the hit occured.
-#[derive(Debug, PartialEq)]
 pub struct HitRecord {
     loc: Point3,
     normal: Vec3,
+    mat: Rc<dyn Material>,
     t: f64,
     front_face: bool,
 }
@@ -23,13 +24,20 @@ impl HitRecord {
     /// This function is unsafe if the normal is not of
     /// unit length. It is not normalized here to allow
     /// math based optimizations at the geometry level.
-    pub unsafe fn new(hit_ray: &Ray, loc: Point3, normal: Vec3, t: f64) -> HitRecord {
+    pub unsafe fn new(
+        hit_ray: &Ray,
+        loc: Point3,
+        normal: Vec3,
+        t: f64,
+        mat: Rc<dyn Material>,
+    ) -> HitRecord {
         let front_face = hit_ray.direction().dot(&normal) < 0.0;
         let new_normal = if front_face { normal } else { -normal };
 
         HitRecord {
             loc,
             normal: new_normal,
+            mat: mat,
             t,
             front_face,
         }
@@ -39,7 +47,13 @@ impl HitRecord {
     /// the unsafe variant my making sure the normal is a unit vector
     /// this is expensive and if there are math tricks available the unsafe
     /// variant may be better
-    pub fn safe_new(hit_ray: &Ray, loc: Point3, normal: Vec3, t: f64) -> HitRecord {
+    pub fn safe_new<T>(
+        hit_ray: &Ray,
+        loc: Point3,
+        normal: Vec3,
+        t: f64,
+        mat: Rc<dyn Material>,
+    ) -> HitRecord {
         let normal = normal.unit_vector();
         let front_face = hit_ray.direction().dot(&normal) < 0.0;
         let new_normal = if front_face { normal } else { -normal };
@@ -47,6 +61,7 @@ impl HitRecord {
         HitRecord {
             loc,
             normal: new_normal,
+            mat: mat,
             t,
             front_face,
         }
@@ -64,6 +79,9 @@ impl HitRecord {
         self.front_face
     }
 
+    pub fn material(&self) -> Rc<dyn Material> {
+        self.mat.clone()
+    }
 }
 
 /// An object must implement this to be rendered. This function
@@ -76,16 +94,20 @@ pub trait Hittable {
 /// The first object struct in the renderer. A sphere is
 /// relatively simple and implements Hittable by solving the
 /// equation x^2 + y^2 + z^2 = r^2
-#[derive(Debug)]
 pub struct Sphere {
     center: Point3,
     radius: f64,
+    mat: Rc<dyn Material>,
 }
 
 impl Sphere {
-    pub fn new(center: Point3, radius: f64) -> Sphere {
+    pub fn new(center: Point3, radius: f64, mat: Rc<dyn Material>) -> Sphere {
         assert!(radius >= 0.0, "Cannot make a sphere with negative radius");
-        Sphere { center, radius }
+        Sphere {
+            center,
+            radius,
+            mat,
+        }
     }
 }
 
@@ -119,7 +141,7 @@ impl Hittable for Sphere {
         let p = r.at(t);
         let n = (p.clone() - self.center.clone()) / self.radius;
         // Safety: This should be safe since n is divided by the radius making it unit length
-        let rec = unsafe { HitRecord::new(r, p, n, t) };
+        let rec = unsafe { HitRecord::new(r, p, n, t, self.mat.clone()) };
 
         Some(rec)
     }

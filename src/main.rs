@@ -49,7 +49,10 @@ fn main() {
     ));
 
     // Make cam mutable to change its behaviors
-    let cam = Camera::new(16.0 / 9.0, 1080);
+    let mut cam = Camera::new(16.0 / 9.0, 1080);
+
+    cam.set_samples(500);
+    cam.set_max_depth(50);
 
     match cam.render(&world, args.file.as_str()) {
         Ok(()) => {

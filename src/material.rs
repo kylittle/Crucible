@@ -44,7 +44,7 @@ impl Material for Lambertian {
 
         let mut rng = rand::rng();
 
-        if rng.random::<f64>() >= self.scatter_prob {
+        if rng.random::<f64>() <= self.scatter_prob {
             Some(scattered)
         } else {
             None

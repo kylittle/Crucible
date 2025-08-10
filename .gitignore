@@ -1,3 +1,4 @@
 /target
 /demo_images/*
-image.ppm
+/benches/criterion_bench.ppm
+*.ppm

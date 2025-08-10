@@ -1,5 +1,6 @@
-use clap::Parser;
-use std::rc::Rc;
+use criterion::{Criterion, criterion_group, criterion_main};
+
+use std::{fs, rc::Rc};
 
 use ray_tracing::{
     environment::Camera,
@@ -8,18 +9,7 @@ use ray_tracing::{
     util::{Color, Point3},
 };
 
-/// A ray-tracing renderer
-#[derive(Parser, Debug)]
-#[command(version, about, long_about = None)]
-struct Args {
-    /// File to render to
-    #[arg(short, long)]
-    file: String,
-}
-
-fn main() {
-    let args = Args::parse();
-
+pub fn criterion_benchmark(c: &mut Criterion) {
     let mut world = HitList::new();
 
     let material_ground = Rc::new(Lambertian::new(Color::new(0.8, 0.8, 0.0), 0.2));
@@ -48,15 +38,14 @@ fn main() {
         material_right,
     ));
 
-    // Make cam mutable to change its behaviors
     let cam = Camera::new(16.0 / 9.0, 1080);
 
-    match cam.render(&world, args.file.as_str()) {
-        Ok(()) => {
-            eprintln!("Successful render! Image stored at: {}", args.file.as_str());
-        }
-        Err(e) => {
-            eprintln!("Render failed. {}", e.to_string());
-        }
-    }
+    c.bench_function("render 1", |b| {
+        b.iter(|| cam.render(std::hint::black_box(&world), "benches/criterion_bench.ppm"))
+    });
+
+    let _ = fs::remove_file("benches/criterion_bench.ppm");
 }
+
+criterion_group!(benches, criterion_benchmark);
+criterion_main!(benches);

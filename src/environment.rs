@@ -1,3 +1,8 @@
+use std::{
+    fs::OpenOptions,
+    io::{BufWriter, Error, Write},
+};
+
 use indicatif::ProgressBar;
 use rand::Rng;
 
@@ -219,16 +224,29 @@ impl Camera {
         average_samples(sample_colors)
     }
 
-    /// This causes the camera to render an image to stdout
-    /// TODO: possibly change this so it renders to a file based on an input
-    pub fn render<T: Hittable>(&self, world: &T) {
+    /// This causes the camera to render an image to stdout. Note
+    /// that this will truncate the file. Be careful
+    ///
+    /// # Error
+    /// Returns an error if the file cannot be opened.
+    pub fn render<T: Hittable>(&self, world: &T, fname: &str) -> Result<(), Error> {
         let iw = self.viewport.image_width;
         let ih = self.viewport.image_height;
 
+        // Make the file or truncate an existing one
+        let f = OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(fname)?;
+
+        let mut bw = BufWriter::new(f);
+
         // Render
 
-        println!("P3\n{iw} {ih}\n255");
+        writeln!(bw, "P3\n{iw} {ih}\n255")?;
 
+        eprintln!("Rendering to file: {fname}");
         let bar = ProgressBar::new((ih * iw).into());
 
         for j in 0..ih {
@@ -236,13 +254,15 @@ impl Camera {
                 // decimal values for each color from 0.0 to 1.0
                 let c = self.cast_ray(i, j, self.max_depth, world);
 
-                println!("{c}"); // TODO: Output to a file
+                writeln!(bw, "{c}")?;
 
                 bar.inc(1);
             }
         }
 
         bar.finish();
+        bw.flush()?;
+        Ok(())
     }
 }
 

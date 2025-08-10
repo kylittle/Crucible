@@ -56,7 +56,7 @@ fn main() {
             eprintln!("Successful render! Image stored at: {}", args.file.as_str());
         }
         Err(e) => {
-            eprintln!("Render failed. {}", e.to_string());
+            eprintln!("Render failed. {e}");
         }
     }
 }

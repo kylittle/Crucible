@@ -2,9 +2,7 @@ name: Rust
 
 on:
   push:
-    branches: [ "master" ]
   pull_request:
-    branches: [ "master" ]
 
 env:
   CARGO_TERM_COLOR: always
@@ -16,6 +14,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+    - name: Lint
+      run: cargo clippy --verbose
     - name: Build
       run: cargo build --verbose
     - name: Run tests

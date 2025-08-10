@@ -7,7 +7,7 @@ use indicatif::ProgressBar;
 use rand::Rng;
 
 use crate::{
-    objects::Hittable,
+    objects::Hittables,
     util::{Color, Interval, Point3, Vec3},
 };
 
@@ -194,12 +194,12 @@ impl Camera {
             + ((j as f64 + offset.y()) * self.pixel_delta_v())
     }
 
-    fn cast_ray<T: Hittable>(
+    fn cast_ray(
         &self,
         render_i: u32,
         render_j: u32,
         max_depth: u32,
-        world: &T,
+        world: &Hittables,
     ) -> Color {
         let cc = self.camera_center.clone();
 
@@ -229,7 +229,7 @@ impl Camera {
     ///
     /// # Error
     /// Returns an error if the file cannot be opened.
-    pub fn render<T: Hittable>(&self, world: &T, fname: &str) -> Result<(), Error> {
+    pub fn render(&self, world: &Hittables, fname: &str) -> Result<(), Error> {
         let iw = self.viewport.image_width;
         let ih = self.viewport.image_height;
 
@@ -267,7 +267,7 @@ impl Camera {
 }
 
 // Helper functions
-fn ray_color<T: Hittable>(r: Ray, depth: u32, world: &T) -> Color {
+fn ray_color(r: Ray, depth: u32, world: &Hittables) -> Color {
     // If we have reached the max bounces we no longer
     // gather color contribution
     if depth == 0 {

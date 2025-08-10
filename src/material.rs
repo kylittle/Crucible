@@ -1,10 +1,37 @@
 use rand::Rng;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     environment::Ray,
     objects::HitRecord,
     util::{Color, Vec3},
 };
+
+#[derive(Serialize, Deserialize)]
+pub enum Materials {
+    Lambertian(Lambertian),
+    Metal(Metal),
+}
+
+impl Materials {
+    pub fn scatter(&self, r_in: &Ray, rec: &HitRecord, attenuation: &mut Color) -> Option<Ray> {
+        match self {
+            Materials::Lambertian(l) => l.scatter(r_in, rec, attenuation),
+            Materials::Metal(m) => m.scatter(r_in, rec, attenuation),
+        }
+    }
+}
+
+impl Clone for Materials {
+    fn clone(&self) -> Self {
+        match self {
+            Materials::Lambertian(l) => {
+                Materials::Lambertian(Lambertian::new(l.albedo.clone(), l.scatter_prob))
+            }
+            Materials::Metal(m) => Materials::Metal(Metal::new(m.albedo.clone())),
+        }
+    }
+}
 
 /// This trait defines the ray scattering
 /// behavior of a material. Scatter returns an option
@@ -14,6 +41,7 @@ pub trait Material {
     fn scatter(&self, r_in: &Ray, rec: &HitRecord, attenuation: &mut Color) -> Option<Ray>;
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct Lambertian {
     albedo: Color,
     scatter_prob: f64,
@@ -54,6 +82,7 @@ impl Material for Lambertian {
 
 /// A reflective material, bounces rays against the
 /// normal.
+#[derive(Serialize, Deserialize)]
 pub struct Metal {
     albedo: Color,
 }

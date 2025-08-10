@@ -1,10 +1,9 @@
 use clap::Parser;
-use std::rc::Rc;
 
 use ray_tracing::{
     environment::Camera,
-    material::{Lambertian, Metal},
-    objects::{HitList, Sphere},
+    material::{Lambertian, Materials, Metal},
+    objects::{HitList, Hittables, Sphere},
     util::{Color, Point3},
 };
 
@@ -22,39 +21,47 @@ fn main() {
 
     let mut world = HitList::new();
 
-    let material_ground = Rc::new(Lambertian::new(Color::new(0.8, 0.8, 0.0), 0.2));
-    let material_center = Rc::new(Lambertian::new(Color::new(0.1, 0.2, 0.5), 0.4));
-    let material_left = Rc::new(Metal::new(Color::new(0.8, 0.8, 0.8)));
-    let material_right = Rc::new(Metal::new(Color::new(0.8, 0.6, 0.2)));
+    // Modify the add method to auto wrap in the enum.
+    // There is a lot of code gen needed here, but
+    // not gonna invest until its clearly worth it with
+    // benchmarks
+    let material_ground = Materials::Lambertian(Lambertian::new(Color::new(0.8, 0.8, 0.0), 0.2));
+    let material_center = Materials::Lambertian(Lambertian::new(Color::new(0.1, 0.2, 0.5), 0.4));
+    let material_left = Materials::Metal(Metal::new(Color::new(0.8, 0.8, 0.8)));
+    let material_right = Materials::Metal(Metal::new(Color::new(0.8, 0.6, 0.2)));
 
-    world.add(Sphere::new(
+    world.add(Hittables::Sphere(Sphere::new(
         Point3::new(0.0, -100.5, -1.0),
         100.0,
         material_ground,
-    ));
-    world.add(Sphere::new(
+    )));
+    world.add(Hittables::Sphere(Sphere::new(
         Point3::new(0.0, 0.0, -1.2),
         0.5,
         material_center,
-    ));
-    world.add(Sphere::new(
+    )));
+    world.add(Hittables::Sphere(Sphere::new(
         Point3::new(-1.0, 0.0, -1.0),
         0.5,
         material_left,
-    ));
-    world.add(Sphere::new(
+    )));
+    world.add(Hittables::Sphere(Sphere::new(
         Point3::new(1.0, 0.0, -1.0),
         0.5,
         material_right,
-    ));
+    )));
 
+    let world = Hittables::HitList(world);
+
+    let s = serde_json::to_value(&world).unwrap();
+    println!("{}", s);
+
+    let w: HitList = serde_json::from_value(s).unwrap();
+    let w = Hittables::HitList(w);
     // Make cam mutable to change its behaviors
-    let mut cam = Camera::new(16.0 / 9.0, 1080);
+    let cam = Camera::new(16.0 / 9.0, 1080);
 
-    cam.set_samples(500);
-    cam.set_max_depth(50);
-
-    match cam.render(&world, args.file.as_str()) {
+    match cam.render(&w, args.file.as_str()) {
         Ok(()) => {
             eprintln!("Successful render! Image stored at: {}", args.file.as_str());
         }

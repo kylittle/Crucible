@@ -480,6 +480,8 @@ dependencies = [
  "criterion",
  "indicatif",
  "rand",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

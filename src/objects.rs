@@ -1,8 +1,8 @@
-use std::rc::Rc;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     environment::Ray,
-    material::Material,
+    material::Materials,
     util::{Interval, Point3, Vec3},
 };
 
@@ -12,7 +12,7 @@ use crate::{
 pub struct HitRecord {
     loc: Point3,
     normal: Vec3,
-    mat: Rc<dyn Material>,
+    mat: Materials,
     t: f64,
     front_face: bool,
 }
@@ -29,7 +29,7 @@ impl HitRecord {
         loc: Point3,
         normal: Vec3,
         t: f64,
-        mat: Rc<dyn Material>,
+        mat: Materials,
     ) -> HitRecord {
         let front_face = hit_ray.direction().dot(&normal) < 0.0;
         let new_normal = if front_face { normal } else { -normal };
@@ -52,7 +52,7 @@ impl HitRecord {
         loc: Point3,
         normal: Vec3,
         t: f64,
-        mat: Rc<dyn Material>,
+        mat: Materials,
     ) -> HitRecord {
         let normal = normal.unit_vector();
         let front_face = hit_ray.direction().dot(&normal) < 0.0;
@@ -79,8 +79,23 @@ impl HitRecord {
         self.front_face
     }
 
-    pub fn material(&self) -> Rc<dyn Material> {
+    pub fn material(&self) -> Materials {
         self.mat.clone()
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+pub enum Hittables {
+    Sphere(Sphere),
+    HitList(HitList),
+}
+
+impl Hittables {
+    pub fn hit(&self, r: &Ray, ray_t: &Interval) -> Option<HitRecord> {
+        match self {
+            Hittables::Sphere(s) => s.hit(r, ray_t),
+            Hittables::HitList(l) => l.hit(r, ray_t),
+        }
     }
 }
 
@@ -94,14 +109,15 @@ pub trait Hittable {
 /// The first object struct in the renderer. A sphere is
 /// relatively simple and implements Hittable by solving the
 /// equation x^2 + y^2 + z^2 = r^2
+#[derive(Serialize, Deserialize)]
 pub struct Sphere {
     center: Point3,
     radius: f64,
-    mat: Rc<dyn Material>,
+    mat: Materials,
 }
 
 impl Sphere {
-    pub fn new(center: Point3, radius: f64, mat: Rc<dyn Material>) -> Sphere {
+    pub fn new(center: Point3, radius: f64, mat: Materials) -> Sphere {
         assert!(radius >= 0.0, "Cannot make a sphere with negative radius");
         Sphere {
             center,
@@ -150,26 +166,22 @@ impl Hittable for Sphere {
 /// Next is a general API to store world objects
 /// it also implements Hittable and handles hits for each
 /// object checking them all.
+#[derive(Serialize, Deserialize)]
 pub struct HitList {
-    objects: Vec<Rc<dyn Hittable>>,
+    objs: Vec<Hittables>,
 }
 
 impl HitList {
     pub fn new() -> HitList {
-        HitList {
-            objects: Vec::new(),
-        }
+        HitList { objs: Vec::new() }
     }
 
     pub fn clear(&mut self) {
-        self.objects.clear();
+        self.objs.clear();
     }
 
-    pub fn add<T>(&mut self, obj: T)
-    where
-        T: Hittable + 'static,
-    {
-        self.objects.push(Rc::new(obj));
+    pub fn add(&mut self, obj: Hittables) {
+        self.objs.push(obj);
     }
 }
 
@@ -184,7 +196,7 @@ impl Hittable for HitList {
         let mut rec: Option<HitRecord> = None;
         let mut closest = ray_t.max();
 
-        for obj in self.objects.as_slice() {
+        for obj in self.objs.as_slice() {
             let new_interval = Interval::new(ray_t.min(), closest);
             if let Some(obj) = obj.hit(r, &new_interval) {
                 closest = obj.t;

@@ -14,12 +14,17 @@ struct Args {
     /// File to render to
     #[arg(short, long)]
     file: String,
+    /// How many threads to use
+    #[arg(short, long)]
+    threads: Option<usize>,
 }
 
 fn main() {
     let args = Args::parse();
 
-    let mut world = HitList::new();
+    let threads = args.threads.unwrap_or(std::thread::available_parallelism().expect("Cannot get the thread count of your system. Specify one when running this program.").get());
+
+    let mut world = HitList::default();
 
     // Modify the add method to auto wrap in the enum.
     // There is a lot of code gen needed here, but
@@ -53,15 +58,11 @@ fn main() {
 
     let world = Hittables::HitList(world);
 
-    let s = serde_json::to_value(&world).unwrap();
-    println!("{}", s);
-
-    let w: HitList = serde_json::from_value(s).unwrap();
-    let w = Hittables::HitList(w);
+    eprintln!("Creating camera with {threads} threads.");
     // Make cam mutable to change its behaviors
-    let cam = Camera::new(16.0 / 9.0, 1080);
+    let mut cam = Camera::new(16.0 / 9.0, 1080, threads);
 
-    match cam.render(&w, args.file.as_str()) {
+    match cam.render(&world, args.file.as_str()) {
         Ok(()) => {
             eprintln!("Successful render! Image stored at: {}", args.file.as_str());
         }

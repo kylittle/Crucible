@@ -172,8 +172,8 @@ pub struct HitList {
 }
 
 impl HitList {
-    pub fn new() -> HitList {
-        HitList { objs: Vec::new() }
+    pub fn new(objs: Vec<Hittables>) -> HitList {
+        HitList { objs }
     }
 
     pub fn clear(&mut self) {
@@ -187,7 +187,7 @@ impl HitList {
 
 impl Default for HitList {
     fn default() -> Self {
-        Self::new()
+        Self::new(vec![])
     }
 }
 

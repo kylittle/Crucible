@@ -10,7 +10,7 @@ use ray_tracing::{
 };
 
 pub fn criterion_benchmark(c: &mut Criterion) {
-    let mut world = HitList::new();
+    let mut world = HitList::default();
 
     let material_ground = Materials::Lambertian(Lambertian::new(Color::new(0.8, 0.8, 0.0), 0.2));
     let material_center = Materials::Lambertian(Lambertian::new(Color::new(0.1, 0.2, 0.5), 0.4));
@@ -40,7 +40,9 @@ pub fn criterion_benchmark(c: &mut Criterion) {
 
     let world = Hittables::HitList(world);
 
-    let cam = Camera::new(16.0 / 9.0, 1080);
+    let mut cam = Camera::new(16.0 / 9.0, 1080, 8);
+    cam.set_max_depth(50);
+    cam.set_samples(500);
 
     c.bench_function("render 1", |b| {
         b.iter(|| cam.render(std::hint::black_box(&world), "benches/criterion_bench.ppm"))

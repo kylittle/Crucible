@@ -1,6 +1,6 @@
 use criterion::{Criterion, criterion_group, criterion_main};
 
-use std::fs;
+use std::{fs, thread};
 
 use ray_tracing::{
     environment::Camera,
@@ -9,7 +9,10 @@ use ray_tracing::{
     util::{Color, Point3},
 };
 
-pub fn criterion_benchmark(c: &mut Criterion) {
+/// Tests the renderer using different thread counts
+pub fn rendering_benchmark(c: &mut Criterion) {
+    let mut group = c.benchmark_group("Threaded Rendering");
+
     let mut world = HitList::default();
 
     let material_ground = Materials::Lambertian(Lambertian::new(Color::new(0.8, 0.8, 0.0), 0.2));
@@ -40,16 +43,41 @@ pub fn criterion_benchmark(c: &mut Criterion) {
 
     let world = Hittables::HitList(world);
 
-    let mut cam = Camera::new(16.0 / 9.0, 1080, 8);
-    cam.set_max_depth(50);
-    cam.set_samples(500);
+    // 1
+    let mut cam = Camera::new(16.0 / 9.0, 1080, 1);
 
-    c.bench_function("render 1", |b| {
+    group.bench_function("render one thread", |b| {
+        b.iter(|| cam.render(std::hint::black_box(&world), "benches/criterion_bench.ppm"))
+    });
+
+    // 2
+    let threads = thread::available_parallelism().unwrap().get();
+    let mut cam = Camera::new(16.0 / 9.0, 1080, threads);
+
+    group.bench_function("render sys thread", |b| {
+        b.iter(|| cam.render(std::hint::black_box(&world), "benches/criterion_bench.ppm"))
+    });
+
+    // 3
+    let threads = thread::available_parallelism().unwrap().get() / 2;
+    let mut cam = Camera::new(16.0 / 9.0, 1080, threads);
+
+    group.bench_function("render half sys thread", |b| {
+        b.iter(|| cam.render(std::hint::black_box(&world), "benches/criterion_bench.ppm"))
+    });
+
+    // 4
+    let threads = thread::available_parallelism().unwrap().get() * 2;
+    let mut cam = Camera::new(16.0 / 9.0, 1080, threads);
+
+    group.bench_function("render double sys thread", |b| {
         b.iter(|| cam.render(std::hint::black_box(&world), "benches/criterion_bench.ppm"))
     });
 
     let _ = fs::remove_file("benches/criterion_bench.ppm");
+
+    group.finish();
 }
 
-criterion_group!(benches, criterion_benchmark);
+criterion_group!(benches, rendering_benchmark);
 criterion_main!(benches);

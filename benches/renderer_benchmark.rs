@@ -1,51 +1,83 @@
 use criterion::{Criterion, criterion_group, criterion_main};
 
-use std::{fs, rc::Rc};
+use std::{fs, thread};
 
 use ray_tracing::{
     environment::Camera,
-    material::{Lambertian, Metal},
-    objects::{HitList, Sphere},
+    material::{Lambertian, Materials, Metal},
+    objects::{HitList, Hittables, Sphere},
     util::{Color, Point3},
 };
 
-pub fn criterion_benchmark(c: &mut Criterion) {
-    let mut world = HitList::new();
+/// Tests the renderer using different thread counts
+pub fn rendering_benchmark(c: &mut Criterion) {
+    let mut group = c.benchmark_group("Threaded Rendering");
 
-    let material_ground = Rc::new(Lambertian::new(Color::new(0.8, 0.8, 0.0), 0.2));
-    let material_center = Rc::new(Lambertian::new(Color::new(0.1, 0.2, 0.5), 0.4));
-    let material_left = Rc::new(Metal::new(Color::new(0.8, 0.8, 0.8)));
-    let material_right = Rc::new(Metal::new(Color::new(0.8, 0.6, 0.2)));
+    let mut world = HitList::default();
 
-    world.add(Sphere::new(
+    let material_ground = Materials::Lambertian(Lambertian::new(Color::new(0.8, 0.8, 0.0), 0.2));
+    let material_center = Materials::Lambertian(Lambertian::new(Color::new(0.1, 0.2, 0.5), 0.4));
+    let material_left = Materials::Metal(Metal::new(Color::new(0.8, 0.8, 0.8)));
+    let material_right = Materials::Metal(Metal::new(Color::new(0.8, 0.6, 0.2)));
+
+    world.add(Hittables::Sphere(Sphere::new(
         Point3::new(0.0, -100.5, -1.0),
         100.0,
         material_ground,
-    ));
-    world.add(Sphere::new(
+    )));
+    world.add(Hittables::Sphere(Sphere::new(
         Point3::new(0.0, 0.0, -1.2),
         0.5,
         material_center,
-    ));
-    world.add(Sphere::new(
+    )));
+    world.add(Hittables::Sphere(Sphere::new(
         Point3::new(-1.0, 0.0, -1.0),
         0.5,
         material_left,
-    ));
-    world.add(Sphere::new(
+    )));
+    world.add(Hittables::Sphere(Sphere::new(
         Point3::new(1.0, 0.0, -1.0),
         0.5,
         material_right,
-    ));
+    )));
 
-    let cam = Camera::new(16.0 / 9.0, 1080);
+    let world = Hittables::HitList(world);
 
-    c.bench_function("render 1", |b| {
+    // 1
+    let mut cam = Camera::new(16.0 / 9.0, 1080, 1);
+
+    group.bench_function("render one thread", |b| {
+        b.iter(|| cam.render(std::hint::black_box(&world), "benches/criterion_bench.ppm"))
+    });
+
+    // 2
+    let threads = thread::available_parallelism().unwrap().get();
+    let mut cam = Camera::new(16.0 / 9.0, 1080, threads);
+
+    group.bench_function("render sys thread", |b| {
+        b.iter(|| cam.render(std::hint::black_box(&world), "benches/criterion_bench.ppm"))
+    });
+
+    // 3
+    let threads = thread::available_parallelism().unwrap().get() / 2;
+    let mut cam = Camera::new(16.0 / 9.0, 1080, threads);
+
+    group.bench_function("render half sys thread", |b| {
+        b.iter(|| cam.render(std::hint::black_box(&world), "benches/criterion_bench.ppm"))
+    });
+
+    // 4
+    let threads = thread::available_parallelism().unwrap().get() * 2;
+    let mut cam = Camera::new(16.0 / 9.0, 1080, threads);
+
+    group.bench_function("render double sys thread", |b| {
         b.iter(|| cam.render(std::hint::black_box(&world), "benches/criterion_bench.ppm"))
     });
 
     let _ = fs::remove_file("benches/criterion_bench.ppm");
+
+    group.finish();
 }
 
-criterion_group!(benches, criterion_benchmark);
+criterion_group!(benches, rendering_benchmark);
 criterion_main!(benches);

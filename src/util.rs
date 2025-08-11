@@ -3,6 +3,7 @@ use std::fmt::Display;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub};
 
 use rand::Rng;
+use serde::{Deserialize, Serialize};
 
 /// Utility function to convert degrees to radians
 #[inline]
@@ -13,7 +14,7 @@ pub fn degrees_to_radians(degrees: f64) -> f64 {
 /// Private type without an external api
 /// API will be exposed through the Color
 /// and Point3 structs.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct Point3 {
     values: (f64, f64, f64),
 }
@@ -252,7 +253,7 @@ impl Div<f64> for Point3 {
 /// # Panics:
 /// If r, g, or b are not between 0 and 1 constructing a
 /// color panics. The type encodes the assumption.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct Color {
     rgb: Point3,
 }

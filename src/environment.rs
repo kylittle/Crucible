@@ -1,13 +1,16 @@
 use std::{
     fs::OpenOptions,
     io::{BufWriter, Error, Write},
+    sync::{Arc, Mutex, mpsc},
+    thread::{self, JoinHandle},
 };
 
-use indicatif::ProgressBar;
+use dashmap::DashMap;
+use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use rand::Rng;
 
 use crate::{
-    objects::Hittable,
+    objects::Hittables,
     util::{Color, Interval, Point3, Vec3},
 };
 
@@ -70,6 +73,36 @@ impl Viewport {
     }
 }
 
+impl Clone for Viewport {
+    fn clone(&self) -> Self {
+        Viewport {
+            viewport_height: self.viewport_height,
+            viewport_width: self.viewport_width,
+            image_height: self.image_height,
+            image_width: self.image_width,
+        }
+    }
+}
+
+#[derive(Clone)]
+pub enum SamplingMethod {
+    Square,
+}
+
+struct ThreadInfo {
+    cam: Arc<Camera>,
+    i: u32,
+    j: u32,
+
+    // Serialized world
+    world: Arc<Vec<u8>>,
+}
+
+impl ThreadInfo {
+    fn new(cam: Arc<Camera>, i: u32, j: u32, world: Arc<Vec<u8>>) -> ThreadInfo {
+        ThreadInfo { cam, i, j, world }
+    }
+}
 pub struct Camera {
     viewport: Viewport,
     focal_length: f64,
@@ -77,10 +110,16 @@ pub struct Camera {
     samples: u32,
     sampling_method: SamplingMethod,
     max_depth: u32,
-}
 
-pub enum SamplingMethod {
-    Square,
+    // threads
+    thread_count: usize,
+    render_threads: Vec<JoinHandle<()>>,
+    results: Arc<DashMap<(u32, u32), Color>>,
+    sender: Option<mpsc::Sender<ThreadInfo>>,
+
+    // progress bars
+    mp: MultiProgress,
+    sty: ProgressStyle,
 }
 
 impl Camera {
@@ -88,13 +127,34 @@ impl Camera {
     /// get (0, 0, 0) or specify your own center
     /// *TODO*: make sure camera center actually works and add
     /// support for camera rotations and movement
-    pub fn new(aspect_ratio: f64, image_width: u32) -> Camera {
+    pub fn new(aspect_ratio: f64, image_width: u32, thread_count: usize) -> Camera {
         let v = Viewport::new(aspect_ratio, image_width);
         let cc = Point3::new(0.0, 0.0, 0.0);
         let focal_length = 1.0;
         let samples = 10;
         let sampling_method = SamplingMethod::Square;
         let max_depth = 10;
+
+        assert!(thread_count > 0);
+        let (sender, receiver) = mpsc::channel();
+        let receiver = Arc::new(Mutex::new(receiver));
+
+        let results = Arc::new(DashMap::new());
+
+        let (mp, sty) = init_pb();
+
+        let mut threads = Vec::with_capacity(thread_count);
+        for id in 0..thread_count {
+            let work = (v.image_height * v.image_width) as u64 / thread_count as u64;
+            let pb = mp.add(ProgressBar::new(work));
+            pb.set_style(sty.clone());
+            threads.push(start_thread(
+                pb,
+                id,
+                Arc::clone(&receiver),
+                Arc::clone(&results),
+            ));
+        }
 
         Camera {
             viewport: v,
@@ -103,6 +163,14 @@ impl Camera {
             samples,
             sampling_method,
             max_depth,
+
+            thread_count,
+            render_threads: threads,
+            results,
+            sender: Some(sender),
+
+            mp,
+            sty,
         }
     }
 
@@ -194,13 +262,7 @@ impl Camera {
             + ((j as f64 + offset.y()) * self.pixel_delta_v())
     }
 
-    fn cast_ray<T: Hittable>(
-        &self,
-        render_i: u32,
-        render_j: u32,
-        max_depth: u32,
-        world: &T,
-    ) -> Color {
+    fn cast_ray(&self, render_i: u32, render_j: u32, max_depth: u32, world: &Hittables) -> Color {
         let cc = self.camera_center.clone();
 
         // Store the colors from each sample
@@ -229,7 +291,12 @@ impl Camera {
     ///
     /// # Error
     /// Returns an error if the file cannot be opened.
-    pub fn render<T: Hittable>(&self, world: &T, fname: &str) -> Result<(), Error> {
+    pub fn render(&mut self, world: &Hittables, fname: &str) -> Result<(), Error> {
+        assert!(
+            self.sender.is_some(),
+            "Camera is not ready, prepare it using prepare_cam()"
+        );
+
         let iw = self.viewport.image_width;
         let ih = self.viewport.image_height;
 
@@ -246,28 +313,154 @@ impl Camera {
 
         writeln!(bw, "P3\n{iw} {ih}\n255")?;
 
-        eprintln!("Rendering to file: {fname}");
-        let bar = ProgressBar::new((ih * iw).into());
+        let ser_world = Arc::new(postcard::to_allocvec(&world).unwrap());
+        let arc_cam = Arc::new(self.clone());
 
         for j in 0..ih {
             for i in 0..iw {
                 // decimal values for each color from 0.0 to 1.0
-                let c = self.cast_ray(i, j, self.max_depth, world);
+                let thread_info =
+                    ThreadInfo::new(Arc::clone(&arc_cam), i, j, Arc::clone(&ser_world));
 
-                writeln!(bw, "{c}")?;
-
-                bar.inc(1);
+                self.sender.as_ref().unwrap().send(thread_info).unwrap();
             }
         }
 
-        bar.finish();
+        drop(self.sender.take());
+
+        for thread in self.render_threads.drain(..) {
+            thread.join().unwrap();
+        }
+
+        for j in 0..ih {
+            for i in 0..iw {
+                let color = self.results.remove(&(i, j)).unwrap().1;
+                writeln!(bw, "{color}")?;
+            }
+        }
+
         bw.flush()?;
+        self.mp.clear().unwrap();
+
+        self.prepare_cam();
+
         Ok(())
+    }
+
+    fn prepare_cam(&mut self) {
+        assert!(self.thread_count > 0);
+        let (sender, receiver) = mpsc::channel();
+        let receiver = Arc::new(Mutex::new(receiver));
+
+        let results = Arc::new(DashMap::new());
+
+        let mut threads = Vec::with_capacity(self.thread_count);
+        self.sender = Some(sender);
+
+        for id in 0..self.thread_count {
+            let work = (self.viewport.image_height * self.viewport.image_width) as u64
+                / self.thread_count as u64;
+            let pb = self.mp.add(ProgressBar::new(work));
+            pb.set_style(self.sty.clone());
+
+            threads.push(start_thread(
+                pb,
+                id,
+                Arc::clone(&receiver),
+                Arc::clone(&results),
+            ));
+        }
+
+        self.render_threads = threads;
+        self.results = results;
+    }
+}
+
+impl Clone for Camera {
+    fn clone(&self) -> Self {
+        Camera {
+            viewport: self.viewport.clone(),
+            focal_length: self.focal_length,
+            camera_center: self.camera_center.clone(),
+            samples: self.samples,
+            sampling_method: self.sampling_method.clone(),
+            max_depth: self.max_depth,
+
+            // Clones have no threads
+            thread_count: 0,
+            render_threads: vec![],
+            results: Arc::clone(&self.results),
+            sender: None,
+
+            mp: self.mp.clone(),
+            sty: self.sty.clone(),
+        }
     }
 }
 
 // Helper functions
-fn ray_color<T: Hittable>(r: Ray, depth: u32, world: &T) -> Color {
+fn init_pb() -> (MultiProgress, ProgressStyle) {
+    let m = MultiProgress::new();
+    let sty = ProgressStyle::with_template(
+        "[{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7} {msg}",
+    )
+    .unwrap()
+    .progress_chars("##-");
+
+    (m, sty)
+}
+
+fn start_thread(
+    pb: ProgressBar,
+    id: usize,
+    receiver: Arc<Mutex<mpsc::Receiver<ThreadInfo>>>,
+    results: Arc<DashMap<(u32, u32), Color>>,
+) -> JoinHandle<()> {
+    //let pb = mp.add(ProgressBar::new(my_pixels));
+    //pb.set_style(sty.clone());
+
+    thread::spawn(move || {
+        let id = id;
+        let mut progress = 0;
+
+        let mut world: Option<Hittables> = None;
+
+        loop {
+            let message = receiver.lock().unwrap().recv();
+
+            match message {
+                Ok(info) => {
+                    let cam = info.cam;
+
+                    let thread_loc_i = info.i;
+                    let thread_loc_j = info.j;
+
+                    world = if world.is_none() {
+                        postcard::from_bytes(&info.world).ok()
+                    } else {
+                        world
+                    };
+
+                    let w = world.as_ref().unwrap();
+                    let color = cam.cast_ray(thread_loc_i, thread_loc_j, cam.max_depth, &w);
+
+                    results.insert((thread_loc_i, thread_loc_j), color);
+                    if progress % 1000 == 0 {
+                        pb.set_message(format!("t{}", id));
+                        pb.inc(1000);
+                    }
+                    progress += 1;
+                }
+                Err(_) => {
+                    pb.finish_with_message(format!("t{} done", { id }));
+                    break;
+                }
+            }
+        }
+    })
+}
+
+fn ray_color(r: Ray, depth: u32, world: &Hittables) -> Color {
     // If we have reached the max bounces we no longer
     // gather color contribution
     if depth == 0 {

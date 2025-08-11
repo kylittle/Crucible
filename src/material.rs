@@ -7,7 +7,7 @@ use crate::{
     util::{Color, Vec3},
 };
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub enum Materials {
     Lambertian(Lambertian),
     Metal(Metal),
@@ -41,7 +41,7 @@ pub trait Material {
     fn scatter(&self, r_in: &Ray, rec: &HitRecord, attenuation: &mut Color) -> Option<Ray>;
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Lambertian {
     albedo: Color,
     scatter_prob: f64,
@@ -82,7 +82,7 @@ impl Material for Lambertian {
 
 /// A reflective material, bounces rays against the
 /// normal.
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Metal {
     albedo: Color,
 }

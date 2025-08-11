@@ -84,7 +84,7 @@ impl HitRecord {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub enum Hittables {
     Sphere(Sphere),
     HitList(HitList),
@@ -109,7 +109,7 @@ pub trait Hittable {
 /// The first object struct in the renderer. A sphere is
 /// relatively simple and implements Hittable by solving the
 /// equation x^2 + y^2 + z^2 = r^2
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Sphere {
     center: Point3,
     radius: f64,
@@ -166,7 +166,7 @@ impl Hittable for Sphere {
 /// Next is a general API to store world objects
 /// it also implements Hittable and handles hits for each
 /// object checking them all.
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct HitList {
     objs: Vec<Hittables>,
 }

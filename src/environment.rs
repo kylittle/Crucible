@@ -95,11 +95,11 @@ struct ThreadInfo {
     j: u32,
 
     // Serialized world
-    world: Arc<String>,
+    world: Arc<Vec<u8>>,
 }
 
 impl ThreadInfo {
-    fn new(cam: Arc<Camera>, i: u32, j: u32, world: Arc<String>) -> ThreadInfo {
+    fn new(cam: Arc<Camera>, i: u32, j: u32, world: Arc<Vec<u8>>) -> ThreadInfo {
         ThreadInfo { cam, i, j, world }
     }
 }
@@ -313,10 +313,9 @@ impl Camera {
 
         writeln!(bw, "P3\n{iw} {ih}\n255")?;
 
-        let ser_world = Arc::new(serde_json::to_string(&world).unwrap());
+        let ser_world = Arc::new(postcard::to_allocvec(&world).unwrap());
         let arc_cam = Arc::new(self.clone());
 
-        self.mp.println("Starting render!").unwrap();
         for j in 0..ih {
             for i in 0..iw {
                 // decimal values for each color from 0.0 to 1.0
@@ -423,6 +422,9 @@ fn start_thread(
     thread::spawn(move || {
         let id = id;
         let mut progress = 0;
+
+        let mut world: Option<Hittables> = None;
+
         loop {
             let message = receiver.lock().unwrap().recv();
 
@@ -433,12 +435,18 @@ fn start_thread(
                     let thread_loc_i = info.i;
                     let thread_loc_j = info.j;
 
-                    let world: Hittables = serde_json::from_str(&info.world).unwrap();
-                    let color = cam.cast_ray(thread_loc_i, thread_loc_j, cam.max_depth, &world);
+                    world = if world.is_none() {
+                        postcard::from_bytes(&info.world).ok()
+                    } else {
+                        world
+                    };
+
+                    let w = world.as_ref().unwrap();
+                    let color = cam.cast_ray(thread_loc_i, thread_loc_j, cam.max_depth, &w);
 
                     results.insert((thread_loc_i, thread_loc_j), color);
                     if progress % 1000 == 0 {
-                        pb.set_message(format!("t{} #{}", id, progress + 1));
+                        pb.set_message(format!("t{}", id));
                         pb.inc(1000);
                     }
                     progress += 1;

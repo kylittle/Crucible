@@ -60,7 +60,10 @@ fn main() {
 
     eprintln!("Creating camera with {threads} threads.");
     // Make cam mutable to change its behaviors
-    let mut cam = Camera::new(16.0 / 9.0, 1080, threads);
+    let mut cam = Camera::new(16.0 / 9.0, 1920, threads);
+
+    cam.set_samples(500);
+    cam.set_max_depth(50);
 
     match cam.render(&world, args.file.as_str()) {
         Ok(()) => {

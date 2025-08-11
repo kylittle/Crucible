@@ -2,7 +2,7 @@ use clap::Parser;
 
 use ray_tracing::{
     environment::Camera,
-    material::{Lambertian, Materials, Metal},
+    material::{Dielectric, Lambertian, Materials, Metal},
     objects::{HitList, Hittables, Sphere},
     util::{Color, Point3},
 };
@@ -32,8 +32,9 @@ fn main() {
     // benchmarks
     let material_ground = Materials::Lambertian(Lambertian::new(Color::new(0.8, 0.8, 0.0), 0.2));
     let material_center = Materials::Lambertian(Lambertian::new(Color::new(0.1, 0.2, 0.5), 0.4));
-    let material_left = Materials::Metal(Metal::new(Color::new(0.8, 0.8, 0.8)));
-    let material_right = Materials::Metal(Metal::new(Color::new(0.8, 0.6, 0.2)));
+    let material_left = Materials::Metal(Metal::new(Color::new(0.8, 0.8, 0.8), 0.4));
+    let material_right = Materials::Dielectric(Dielectric::new(1.50));
+    let material_bubble = Materials::Dielectric(Dielectric::new(1.00 / 1.50));
 
     world.add(Hittables::Sphere(Sphere::new(
         Point3::new(0.0, -100.5, -1.0),
@@ -54,6 +55,11 @@ fn main() {
         Point3::new(1.0, 0.0, -1.0),
         0.5,
         material_right,
+    )));
+    world.add(Hittables::Sphere(Sphere::new(
+        Point3::new(1.0, 0.0, -1.0),
+        0.4,
+        material_bubble,
     )));
 
     let world = Hittables::HitList(world);

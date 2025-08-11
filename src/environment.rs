@@ -442,11 +442,11 @@ fn start_thread(
                     };
 
                     let w = world.as_ref().unwrap();
-                    let color = cam.cast_ray(thread_loc_i, thread_loc_j, cam.max_depth, &w);
+                    let color = cam.cast_ray(thread_loc_i, thread_loc_j, cam.max_depth, w);
 
                     results.insert((thread_loc_i, thread_loc_j), color);
                     if progress % 1000 == 0 {
-                        pb.set_message(format!("t{}", id));
+                        pb.set_message(format!("t{id}"));
                         pb.inc(1000);
                     }
                     progress += 1;

@@ -78,8 +78,20 @@ impl Point3 {
     }
 
     /// Compute the reflection of a vector across the normal
-    pub fn reflect_vec3(v: &Vec3, norm: &Vec3) -> Vec3 {
+    pub fn reflect(v: &Vec3, norm: &Vec3) -> Vec3 {
         v.clone() - 2.0 * v.dot(norm) * norm.clone()
+    }
+
+    /// Refracts self using the norm of a surface.
+    /// etai_over_etat is the ratio between the index
+    /// of refractions based on the two materials the
+    /// vector is transitioning between
+    pub fn refract(v: &Vec3, norm: &Vec3, etai_over_etat: f64) -> Vec3 {
+        let cos_theta = (-v.clone()).dot(norm).min(1.0);
+        let r_out_perp = etai_over_etat * (v.clone() + cos_theta * norm.clone());
+        let r_out_parallel = -((1.0 - r_out_perp.length_squared()).abs().sqrt()) * norm.clone();
+
+        r_out_perp + r_out_parallel
     }
 
     pub fn x(&self) -> f64 {

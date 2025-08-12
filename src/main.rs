@@ -75,6 +75,8 @@ fn main() {
     cam.look_at(Point3::new(0.0, 0.0, -1.0));
 
     cam.set_vfov(20.0);
+    cam.set_defocus_angle(10.0);
+    cam.set_focus_dist(3.4);
 
     match cam.render(&world, args.file.as_str()) {
         Ok(()) => {

@@ -107,9 +107,14 @@ pub struct Camera {
     vfov: Radians,
     aspect_ratio: f64,
 
+    // look dir
     look_from: Point3,
     look_at: Point3,
     vup: Vec3,
+
+    // defocus fields
+    defocus_angle: Radians,
+    focus_dist: f64,
 
     // sampling
     samples: u32,
@@ -179,6 +184,9 @@ impl Camera {
             look_at: Point3::new(0.0, 0.0, -1.0),
             vup: Vec3::new(0.0, 1.0, 0.0),
 
+            defocus_angle: Radians::new_from_degrees(0.0),
+            focus_dist: 10.0,
+
             samples,
             sampling_method,
             max_depth,
@@ -198,11 +206,7 @@ impl Camera {
         self.look_from = loc;
 
         // we have to fix the viewport
-        let h = (self.vfov.get_angle() / 2.0).tan();
-
-        self.viewport.viewport_height = 2.0 * h * self.focal_length();
-        self.viewport.viewport_width = self.viewport.viewport_height
-            * (self.viewport.image_width as f64 / self.viewport.image_height as f64);
+        self.fix_viewport();
     }
 
     /// Sets where the camera looks
@@ -210,32 +214,11 @@ impl Camera {
         self.look_at = loc;
 
         // we have to fix the viewport
-        let h = (self.vfov.get_angle() / 2.0).tan();
-
-        self.viewport.viewport_height = 2.0 * h * self.focal_length();
-        self.viewport.viewport_width = self.viewport.viewport_height
-            * (self.viewport.image_width as f64 / self.viewport.image_height as f64);
+        self.fix_viewport();
     }
 
     pub fn set_vup(&mut self, vup: Vec3) {
         self.vup = vup;
-    }
-
-    fn u_basis(&self) -> Vec3 {
-        self.vup.cross(&self.w_basis()).unit_vector()
-    }
-
-    fn v_basis(&self) -> Vec3 {
-        self.w_basis().cross(&self.u_basis())
-    }
-
-    fn w_basis(&self) -> Vec3 {
-        (self.look_from.clone() - self.look_at.clone()).unit_vector()
-    }
-
-    /// Computes the focal length
-    fn focal_length(&self) -> f64 {
-        (self.look_from.clone() - self.look_at.clone()).length()
     }
 
     /// Sets the vertical FOV, takes degrees and changes
@@ -243,11 +226,7 @@ impl Camera {
     pub fn set_vfov(&mut self, vfov_degrees: f64) {
         self.vfov = Radians::new_from_degrees(vfov_degrees);
 
-        let h = (self.vfov.get_angle() / 2.0).tan();
-
-        self.viewport.viewport_height = 2.0 * h * self.focal_length();
-        self.viewport.viewport_width = self.viewport.viewport_height
-            * (self.viewport.image_width as f64 / self.viewport.image_height as f64);
+        self.fix_viewport();
     }
 
     /// Sets the FOV using the horizontal number
@@ -279,6 +258,27 @@ impl Camera {
     /// will make when a ray bounces off a surface
     pub fn set_max_depth(&mut self, md: u32) {
         self.max_depth = md;
+    }
+
+    /// Sets the cameras defocus angle, argument is in degrees
+    pub fn set_defocus_angle(&mut self, da_degree: f64) {
+        self.defocus_angle = Radians::new_from_degrees(da_degree);
+    }
+
+    /// Sets the cameras focus distance
+    pub fn set_focus_dist(&mut self, fd: f64) {
+        self.focus_dist = fd;
+
+        self.fix_viewport();
+    }
+
+    // Call whenever any of these vars change
+    fn fix_viewport(&mut self) {
+        let h = (self.vfov.get_angle() / 2.0).tan();
+
+        self.viewport.viewport_height = 2.0 * h * self.focus_dist;
+        self.viewport.viewport_width = self.viewport.viewport_height
+            * (self.viewport.image_width as f64 / self.viewport.image_height as f64);
     }
 
     // TODO: Inlined for efficiency might not work when
@@ -320,9 +320,7 @@ impl Camera {
     #[inline]
     fn viewport_upperleft(&self) -> Point3 {
         let cc = self.look_from.clone();
-        cc - (self.focal_length() * self.w_basis())
-            - self.viewport_u() / 2.0
-            - self.viewport_v() / 2.0
+        cc - (self.focus_dist * self.w_basis()) - self.viewport_u() / 2.0 - self.viewport_v() / 2.0
     }
 
     #[inline]
@@ -336,6 +334,43 @@ impl Camera {
         self.pixel_start_location()
             + ((i as f64 + offset.x()) * self.pixel_delta_u())
             + ((j as f64 + offset.y()) * self.pixel_delta_v())
+    }
+
+    #[inline]
+    fn defocus_radius(&self) -> f64 {
+        self.focus_dist * (self.defocus_angle.get_angle() / 2.0).tan()
+    }
+
+    // Basis vectors
+    #[inline]
+    fn u_basis(&self) -> Vec3 {
+        self.vup.cross(&self.w_basis()).unit_vector()
+    }
+
+    #[inline]
+    fn v_basis(&self) -> Vec3 {
+        self.w_basis().cross(&self.u_basis())
+    }
+
+    #[inline]
+    fn w_basis(&self) -> Vec3 {
+        (self.look_from.clone() - self.look_at.clone()).unit_vector()
+    }
+
+    #[inline]
+    fn defocus_disk_u(&self) -> Vec3 {
+        self.u_basis() * self.defocus_radius()
+    }
+
+    #[inline]
+    fn defocus_disk_v(&self) -> Vec3 {
+        self.v_basis() * self.defocus_radius()
+    }
+
+    // This might be repurposeable as disc sampling TODO
+    fn defocus_disk_sample(&self) -> Point3 {
+        let p = Point3::random_in_unit_disk();
+        self.look_from.clone() + (p.x() * self.defocus_disk_u()) + (p.y() * self.defocus_disk_v())
     }
 
     fn cast_ray(&self, render_i: u32, render_j: u32, max_depth: u32, world: &Hittables) -> Color {
@@ -353,8 +388,14 @@ impl Camera {
 
             let ps = self.get_pixel_pos(render_i, render_j, offset);
 
-            let ray_dir = ps - cc.clone();
-            let ray_cast = Ray::new(cc.clone(), ray_dir);
+            let ray_orig = if self.defocus_angle.get_angle() <= 0.0 {
+                cc.clone()
+            } else {
+                self.defocus_disk_sample()
+            };
+
+            let ray_dir = ps - ray_orig.clone();
+            let ray_cast = Ray::new(ray_orig, ray_dir);
 
             sample_colors.push(ray_color(ray_cast, max_depth, world));
         }
@@ -465,9 +506,14 @@ impl Clone for Camera {
             vfov: self.vfov.clone(),
             aspect_ratio: self.aspect_ratio,
 
+            // Look targets
             look_from: self.look_from.clone(),
             look_at: self.look_at.clone(),
             vup: self.vup.clone(),
+
+            // defocus vars
+            defocus_angle: self.defocus_angle.clone(),
+            focus_dist: self.focus_dist,
 
             // sampling
             samples: self.samples,

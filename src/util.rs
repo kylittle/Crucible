@@ -364,6 +364,32 @@ impl Color {
         Color::new(1.0, 1.0, 1.0)
     }
 
+    /// Generate a random color
+    pub fn random_color() -> Color {
+        let mut rng = rand::rng();
+
+        let r_rand = rng.random();
+        let g_rand = rng.random();
+        let b_rand = rng.random();
+
+        Color::new(r_rand, g_rand, b_rand)
+    }
+
+    /// Make a random color with a min of low and max of high
+    /// Clamps inputs to 0.0 to 1.0
+    pub fn random_color_range(low: f64, high: f64) -> Color {
+        let mut rng = rand::rng();
+
+        let low = low.clamp(0.0, 1.0);
+        let high = high.clamp(0.0, 1.0);
+
+        let r_rand = rng.random_range(low..high);
+        let g_rand = rng.random_range(low..high);
+        let b_rand = rng.random_range(low..high);
+
+        Color::new(r_rand, g_rand, b_rand)
+    }
+
     pub fn r(&self) -> f64 {
         self.rgb.x()
     }

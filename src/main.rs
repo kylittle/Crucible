@@ -1,11 +1,6 @@
 use clap::Parser;
 
-use ray_tracing::{
-    environment::Camera,
-    material::{Dielectric, Lambertian, Materials, Metal},
-    objects::{HitList, Hittables, Sphere},
-    util::{Color, Point3},
-};
+use ray_tracing::{demo_scenes, environment::Camera, util::Point3};
 
 /// A ray-tracing renderer
 #[derive(Parser, Debug)]
@@ -24,45 +19,7 @@ fn main() {
 
     let threads = args.threads.unwrap_or(std::thread::available_parallelism().expect("Cannot get the thread count of your system. Specify one when running this program.").get());
 
-    let mut world = HitList::default();
-
-    // Modify the add method to auto wrap in the enum.
-    // There is a lot of code gen needed here, but
-    // not gonna invest until its clearly worth it with
-    // benchmarks
-    let material_ground = Materials::Lambertian(Lambertian::new(Color::new(0.8, 0.8, 0.0), 0.2));
-    let material_center = Materials::Lambertian(Lambertian::new(Color::new(0.1, 0.2, 0.5), 0.4));
-    let material_left = Materials::Metal(Metal::new(Color::new(0.8, 0.8, 0.8), 0.4));
-    let material_right = Materials::Dielectric(Dielectric::new(1.50));
-    let material_bubble = Materials::Dielectric(Dielectric::new(1.00 / 1.50));
-
-    world.add(Hittables::Sphere(Sphere::new(
-        Point3::new(0.0, -100.5, -1.0),
-        100.0,
-        material_ground,
-    )));
-    world.add(Hittables::Sphere(Sphere::new(
-        Point3::new(0.0, 0.0, -1.2),
-        0.5,
-        material_center,
-    )));
-    world.add(Hittables::Sphere(Sphere::new(
-        Point3::new(-1.0, 0.0, -1.0),
-        0.5,
-        material_left,
-    )));
-    world.add(Hittables::Sphere(Sphere::new(
-        Point3::new(1.0, 0.0, -1.0),
-        0.5,
-        material_right,
-    )));
-    world.add(Hittables::Sphere(Sphere::new(
-        Point3::new(1.0, 0.0, -1.0),
-        0.4,
-        material_bubble,
-    )));
-
-    let world = Hittables::HitList(world);
+    let world = demo_scenes::book1_end_scene();
 
     eprintln!("Creating camera with {threads} threads.");
     // Make cam mutable to change its behaviors
@@ -71,12 +28,13 @@ fn main() {
     cam.set_samples(500);
     cam.set_max_depth(50);
 
-    cam.look_from(Point3::new(-2.0, 2.0, 1.0));
-    cam.look_at(Point3::new(0.0, 0.0, -1.0));
+    cam.look_from(Point3::new(13.0, 2.0, 3.0));
+    cam.look_at(Point3::new(0.0, 0.0, 0.0));
 
     cam.set_vfov(20.0);
-    cam.set_defocus_angle(10.0);
-    cam.set_focus_dist(3.4);
+
+    cam.set_defocus_angle(0.6);
+    cam.set_focus_dist(10.0);
 
     match cam.render(&world, args.file.as_str()) {
         Ok(()) => {

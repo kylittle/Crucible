@@ -71,6 +71,11 @@ fn main() {
     cam.set_samples(500);
     cam.set_max_depth(50);
 
+    cam.look_from(Point3::new(-2.0, 2.0, 1.0));
+    cam.look_at(Point3::new(0.0, 0.0, -1.0));
+
+    cam.set_vfov(20.0);
+
     match cam.render(&world, args.file.as_str()) {
         Ok(()) => {
             eprintln!("Successful render! Image stored at: {}", args.file.as_str());

@@ -11,6 +11,12 @@ pub fn degrees_to_radians(degrees: f64) -> f64 {
     degrees * PI / 180.0
 }
 
+/// Utility function to convert radians to degrees
+#[inline]
+pub fn radians_to_degrees(radians: f64) -> f64 {
+    radians * 180.0 / PI
+}
+
 /// Private type without an external api
 /// API will be exposed through the Color
 /// and Point3 structs.
@@ -665,6 +671,18 @@ mod tests {
 
         assert!(
             (r - 1.034906943).abs() < tolerance,
+            "Test is not in the accepted tolerance range"
+        );
+    }
+
+    #[test]
+    fn degrees_to_radians_circular() {
+        let d = radians_to_degrees(degrees_to_radians(90.0));
+
+        let tolerance = 0.000000005;
+
+        assert!(
+            (d - 90.0).abs() < tolerance,
             "Test is not in the accepted tolerance range"
         );
     }

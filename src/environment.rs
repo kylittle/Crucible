@@ -11,7 +11,7 @@ use rand::Rng;
 
 use crate::{
     objects::Hittables,
-    util::{Color, Interval, Point3, Vec3},
+    util::{self, Color, Interval, Point3, Vec3},
 };
 
 /// Ray represents a ray of light with a direction
@@ -60,13 +60,10 @@ impl Viewport {
         let image_height = (image_width as f64 / aspect_ratio) as u32;
         let image_height = image_height.clamp(1, u32::MAX);
 
-        // Arbitrary value from book. Maybe try changing it?
-        let viewport_height = 2.0;
-        let viewport_width = viewport_height * (image_width as f64 / image_height as f64);
-
         Viewport {
-            viewport_height,
-            viewport_width,
+            // These will be initialized by the camera
+            viewport_height: 0.0,
+            viewport_width: 0.0,
             image_height,
             image_width,
         }
@@ -103,10 +100,18 @@ impl ThreadInfo {
         ThreadInfo { cam, i, j, world }
     }
 }
+
 pub struct Camera {
+    // camera position
     viewport: Viewport,
-    focal_length: f64,
-    camera_center: Point3,
+    vfov: f64,
+    aspect_ratio: f64,
+
+    look_from: Point3,
+    look_at: Point3,
+    vup: Vec3,
+
+    // sampling
     samples: u32,
     sampling_method: SamplingMethod,
     max_depth: u32,
@@ -125,16 +130,24 @@ pub struct Camera {
 impl Camera {
     /// Pass in None for the parameter camera_center to
     /// get (0, 0, 0) or specify your own center
-    /// *TODO*: make sure camera center actually works and add
-    /// support for camera rotations and movement
+    /// TODO: Maybe change to use directions instead of points
     pub fn new(aspect_ratio: f64, image_width: u32, thread_count: usize) -> Camera {
-        let v = Viewport::new(aspect_ratio, image_width);
-        let cc = Point3::new(0.0, 0.0, 0.0);
-        let focal_length = 1.0;
+        // Location and viewport config
+        let h = (util::degrees_to_radians(90.0) / 2.0).tan();
+        let mut v = Viewport::new(aspect_ratio, image_width);
+
+        // calc default focal length
+        let focal_length = (Point3::new(0.0, 0.0, 0.0) - Point3::new(0.0, 0.0, -1.0)).length();
+
+        v.viewport_height = 2.0 * h * focal_length;
+        v.viewport_width = v.viewport_height * (v.image_width as f64 / v.image_height as f64);
+
+        // Sampling presets
         let samples = 10;
         let sampling_method = SamplingMethod::Square;
         let max_depth = 10;
 
+        // Threading initialization
         assert!(thread_count > 0);
         let (sender, receiver) = mpsc::channel();
         let receiver = Arc::new(Mutex::new(receiver));
@@ -158,8 +171,13 @@ impl Camera {
 
         Camera {
             viewport: v,
-            focal_length,
-            camera_center: cc,
+            vfov: util::degrees_to_radians(90.0),
+            aspect_ratio,
+
+            look_from: Point3::new(0.0, 0.0, 0.0),
+            look_at: Point3::new(0.0, 0.0, -1.0),
+            vup: Vec3::new(0.0, 1.0, 0.0),
+
             samples,
             sampling_method,
             max_depth,
@@ -175,13 +193,69 @@ impl Camera {
     }
 
     /// Sets the cameras center position in the image
-    pub fn set_loc(&mut self, loc: Point3) {
-        self.camera_center = loc;
+    pub fn look_from(&mut self, loc: Point3) {
+        self.look_from = loc;
+
+        // we have to fix the viewport
+        let h = (self.vfov / 2.0).tan();
+
+        self.viewport.viewport_height = 2.0 * h * self.focal_length();
+        self.viewport.viewport_width = self.viewport.viewport_height
+            * (self.viewport.image_width as f64 / self.viewport.image_height as f64);
     }
 
-    /// Sets the cameras distance from the viewport
-    pub fn set_focal_length(&mut self, fl: f64) {
-        self.focal_length = fl;
+    /// Sets where the camera looks
+    pub fn look_at(&mut self, loc: Point3) {
+        self.look_at = loc;
+
+        // we have to fix the viewport
+        let h = (self.vfov / 2.0).tan();
+
+        self.viewport.viewport_height = 2.0 * h * self.focal_length();
+        self.viewport.viewport_width = self.viewport.viewport_height
+            * (self.viewport.image_width as f64 / self.viewport.image_height as f64);
+    }
+
+    pub fn set_vup(&mut self, vup: Vec3) {
+        self.vup = vup;
+    }
+
+    fn u_basis(&self) -> Vec3 {
+        self.vup.cross(&self.w_basis()).unit_vector()
+    }
+
+    fn v_basis(&self) -> Vec3 {
+        self.w_basis().cross(&self.u_basis())
+    }
+
+    fn w_basis(&self) -> Vec3 {
+        (self.look_from.clone() - self.look_at.clone()).unit_vector()
+    }
+
+    /// Computes the focal length
+    fn focal_length(&self) -> f64 {
+        (self.look_from.clone() - self.look_at.clone()).length()
+    }
+
+    /// Sets the vertical FOV, takes degrees and changes
+    /// it automatically internally
+    pub fn set_vfov(&mut self, vfov: f64) {
+        self.vfov = util::degrees_to_radians(vfov);
+
+        let h = (self.vfov / 2.0).tan();
+
+        self.viewport.viewport_height = 2.0 * h * self.focal_length();
+        self.viewport.viewport_width = self.viewport.viewport_height
+            * (self.viewport.image_width as f64 / self.viewport.image_height as f64);
+    }
+
+    /// Sets the FOV using the horizontal number
+    pub fn set_hfov(&mut self, hfov: f64) {
+        let hfov = util::degrees_to_radians(hfov);
+
+        // Solved equation for vfov:
+        let vfov = (hfov / (2.0 * self.aspect_ratio)).tan().atan() * 2.0;
+        self.set_vfov(util::radians_to_degrees(vfov));
     }
 
     /// Sets the number of samples. This option can be
@@ -209,7 +283,7 @@ impl Camera {
     /// Vector representing the horizontal viewport edge
     #[inline]
     fn viewport_u(&self) -> Vec3 {
-        Vec3::new(self.viewport.viewport_width, 0.0, 0.0)
+        self.viewport.viewport_width * self.u_basis()
     }
 
     /// Vector representing the vertical viewport edge. It is
@@ -217,7 +291,7 @@ impl Camera {
     /// to the camera (we want our vec to point down)
     #[inline]
     fn viewport_v(&self) -> Vec3 {
-        Vec3::new(0.0, -self.viewport.viewport_height, 0.0)
+        self.viewport.viewport_height * (-self.v_basis())
     }
 
     /// Subdivide the length of our viewport by pixels
@@ -239,12 +313,11 @@ impl Camera {
     /// Compute the upper left hand corner. This uses the
     /// cameras position to move to the upper left. However
     /// the / 2.0 on the last two lines breaks generality of
-    /// camera position. *TODO*: Fix this (maybe not? the viewport probably moves
-    /// with the camera right?)
+    /// camera position.
     #[inline]
     fn viewport_upperleft(&self) -> Point3 {
-        let cc = self.camera_center.clone();
-        cc - Point3::new(0.0, 0.0, self.focal_length)
+        let cc = self.look_from.clone();
+        cc - (self.focal_length() * self.w_basis())
             - self.viewport_u() / 2.0
             - self.viewport_v() / 2.0
     }
@@ -263,7 +336,7 @@ impl Camera {
     }
 
     fn cast_ray(&self, render_i: u32, render_j: u32, max_depth: u32, world: &Hittables) -> Color {
-        let cc = self.camera_center.clone();
+        let cc = self.look_from.clone();
 
         // Store the colors from each sample
         let mut sample_colors = Vec::new();
@@ -295,6 +368,11 @@ impl Camera {
         assert!(
             self.sender.is_some(),
             "Camera is not ready, prepare it using prepare_cam()"
+        );
+
+        assert!(
+            self.look_at != self.look_from,
+            "look_at and look_from cannot be the same."
         );
 
         let iw = self.viewport.image_width;
@@ -379,9 +457,16 @@ impl Camera {
 impl Clone for Camera {
     fn clone(&self) -> Self {
         Camera {
+            // Camera position
             viewport: self.viewport.clone(),
-            focal_length: self.focal_length,
-            camera_center: self.camera_center.clone(),
+            vfov: self.vfov,
+            aspect_ratio: self.aspect_ratio,
+
+            look_from: self.look_from.clone(),
+            look_at: self.look_at.clone(),
+            vup: self.vup.clone(),
+
+            // sampling
             samples: self.samples,
             sampling_method: self.sampling_method.clone(),
             max_depth: self.max_depth,

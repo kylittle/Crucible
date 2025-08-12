@@ -5,16 +5,64 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
-/// Utility function to convert degrees to radians
-#[inline]
-pub fn degrees_to_radians(degrees: f64) -> f64 {
-    degrees * PI / 180.0
+/// A struct to represent what internal angle measure a value
+/// is. This one is for degrees.
+#[derive(Debug, Clone)]
+pub struct Degrees {
+    angle_degree: f64,
 }
 
-/// Utility function to convert radians to degrees
-#[inline]
-pub fn radians_to_degrees(radians: f64) -> f64 {
-    radians * 180.0 / PI
+impl Degrees {
+    pub fn new(angle_degree: f64) -> Degrees {
+        Degrees { angle_degree }
+    }
+
+    pub fn new_from_radians(radians: f64) -> Degrees {
+        Degrees {
+            angle_degree: radians * 180.0 / PI,
+        }
+    }
+
+    /// Utility function to convert degrees to radians
+    pub fn as_radians(&self) -> Radians {
+        Radians {
+            angle_radian: self.angle_degree * PI / 180.0,
+        }
+    }
+
+    pub fn get_angle(&self) -> f64 {
+        self.angle_degree
+    }
+}
+
+/// A struct to represent what internal angle measure a value
+/// is. This one is for Radians.
+#[derive(Debug, Clone)]
+pub struct Radians {
+    angle_radian: f64,
+}
+
+impl Radians {
+    pub fn new(angle_radian: f64) -> Radians {
+        Radians { angle_radian }
+    }
+
+    pub fn new_from_degrees(degrees: f64) -> Radians {
+        Radians {
+            angle_radian: degrees * PI / 180.0,
+        }
+    }
+
+    /// Utility function to convert radians to degrees
+    pub fn as_degrees(&self) -> Degrees {
+        Degrees {
+            angle_degree: self.angle_radian * 180.0 / PI,
+        }
+    }
+
+    pub fn get_angle(&self) -> f64 {
+        self.angle_radian
+    }
 }
 
 /// Private type without an external api
@@ -665,24 +713,26 @@ mod tests {
 
     #[test]
     fn degrees_convert_test() {
-        let r = degrees_to_radians(59.2958);
+        let d = Degrees::new(59.2958);
+        let r = d.as_radians();
         // Accurate to about +- 2e-8
         let tolerance = 0.0000000005;
 
         assert!(
-            (r - 1.034906943).abs() < tolerance,
+            (r.get_angle() - 1.034906943).abs() < tolerance,
             "Test is not in the accepted tolerance range"
         );
     }
 
     #[test]
     fn degrees_to_radians_circular() {
-        let d = radians_to_degrees(degrees_to_radians(90.0));
+        let d = Degrees::new(90.0);
+        let t = d.as_radians().as_degrees();
 
         let tolerance = 0.000000005;
 
         assert!(
-            (d - 90.0).abs() < tolerance,
+            (t.get_angle() - 90.0).abs() < tolerance,
             "Test is not in the accepted tolerance range"
         );
     }

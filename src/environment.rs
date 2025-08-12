@@ -11,7 +11,7 @@ use rand::Rng;
 
 use crate::{
     objects::Hittables,
-    util::{self, Color, Interval, Point3, Vec3},
+    util::{Color, Degrees, Interval, Point3, Radians, Vec3},
 };
 
 /// Ray represents a ray of light with a direction
@@ -104,7 +104,7 @@ impl ThreadInfo {
 pub struct Camera {
     // camera position
     viewport: Viewport,
-    vfov: f64,
+    vfov: Radians,
     aspect_ratio: f64,
 
     look_from: Point3,
@@ -133,7 +133,8 @@ impl Camera {
     /// TODO: Maybe change to use directions instead of points
     pub fn new(aspect_ratio: f64, image_width: u32, thread_count: usize) -> Camera {
         // Location and viewport config
-        let h = (util::degrees_to_radians(90.0) / 2.0).tan();
+        let fov = Degrees::new(90.0).as_radians();
+        let h = (fov.get_angle() / 2.0).tan();
         let mut v = Viewport::new(aspect_ratio, image_width);
 
         // calc default focal length
@@ -171,7 +172,7 @@ impl Camera {
 
         Camera {
             viewport: v,
-            vfov: util::degrees_to_radians(90.0),
+            vfov: fov,
             aspect_ratio,
 
             look_from: Point3::new(0.0, 0.0, 0.0),
@@ -197,7 +198,7 @@ impl Camera {
         self.look_from = loc;
 
         // we have to fix the viewport
-        let h = (self.vfov / 2.0).tan();
+        let h = (self.vfov.get_angle() / 2.0).tan();
 
         self.viewport.viewport_height = 2.0 * h * self.focal_length();
         self.viewport.viewport_width = self.viewport.viewport_height
@@ -209,7 +210,7 @@ impl Camera {
         self.look_at = loc;
 
         // we have to fix the viewport
-        let h = (self.vfov / 2.0).tan();
+        let h = (self.vfov.get_angle() / 2.0).tan();
 
         self.viewport.viewport_height = 2.0 * h * self.focal_length();
         self.viewport.viewport_width = self.viewport.viewport_height
@@ -239,10 +240,10 @@ impl Camera {
 
     /// Sets the vertical FOV, takes degrees and changes
     /// it automatically internally
-    pub fn set_vfov(&mut self, vfov: f64) {
-        self.vfov = util::degrees_to_radians(vfov);
+    pub fn set_vfov(&mut self, vfov_degrees: f64) {
+        self.vfov = Radians::new_from_degrees(vfov_degrees);
 
-        let h = (self.vfov / 2.0).tan();
+        let h = (self.vfov.get_angle() / 2.0).tan();
 
         self.viewport.viewport_height = 2.0 * h * self.focal_length();
         self.viewport.viewport_width = self.viewport.viewport_height
@@ -250,12 +251,14 @@ impl Camera {
     }
 
     /// Sets the FOV using the horizontal number
-    pub fn set_hfov(&mut self, hfov: f64) {
-        let hfov = util::degrees_to_radians(hfov);
+    pub fn set_hfov(&mut self, hfov_degrees: f64) {
+        let hfov = Radians::new_from_degrees(hfov_degrees);
 
         // Solved equation for vfov:
-        let vfov = (hfov / (2.0 * self.aspect_ratio)).tan().atan() * 2.0;
-        self.set_vfov(util::radians_to_degrees(vfov));
+        let vfov = Degrees::new_from_radians(
+            (hfov.get_angle() / (2.0 * self.aspect_ratio)).tan().atan() * 2.0,
+        );
+        self.set_vfov(vfov.get_angle());
     }
 
     /// Sets the number of samples. This option can be
@@ -459,7 +462,7 @@ impl Clone for Camera {
         Camera {
             // Camera position
             viewport: self.viewport.clone(),
-            vfov: self.vfov,
+            vfov: self.vfov.clone(),
             aspect_ratio: self.aspect_ratio,
 
             look_from: self.look_from.clone(),

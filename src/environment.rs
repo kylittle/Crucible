@@ -87,17 +87,13 @@ pub enum SamplingMethod {
 }
 
 struct ThreadInfo {
-    cam: Arc<Camera>,
     i: u32,
     j: u32,
-
-    // Serialized world
-    world: Arc<Vec<u8>>,
 }
 
 impl ThreadInfo {
-    fn new(cam: Arc<Camera>, i: u32, j: u32, world: Arc<Vec<u8>>) -> ThreadInfo {
-        ThreadInfo { cam, i, j, world }
+    fn new(i: u32, j: u32) -> ThreadInfo {
+        ThreadInfo { i, j }
     }
 }
 
@@ -123,9 +119,7 @@ pub struct Camera {
 
     // threads
     thread_count: usize,
-    render_threads: Vec<JoinHandle<()>>,
     results: Arc<DashMap<(u32, u32), Color>>,
-    sender: Option<mpsc::Sender<ThreadInfo>>,
 
     // progress bars
     mp: MultiProgress,
@@ -153,27 +147,8 @@ impl Camera {
         let sampling_method = SamplingMethod::Square;
         let max_depth = 10;
 
-        // Threading initialization
-        assert!(thread_count > 0);
-        let (sender, receiver) = mpsc::channel();
-        let receiver = Arc::new(Mutex::new(receiver));
-
         let results = Arc::new(DashMap::new());
-
         let (mp, sty) = init_pb();
-
-        let mut threads = Vec::with_capacity(thread_count);
-        for id in 0..thread_count {
-            let work = (v.image_height * v.image_width) as u64 / thread_count as u64;
-            let pb = mp.add(ProgressBar::new(work));
-            pb.set_style(sty.clone());
-            threads.push(start_thread(
-                pb,
-                id,
-                Arc::clone(&receiver),
-                Arc::clone(&results),
-            ));
-        }
 
         Camera {
             viewport: v,
@@ -192,9 +167,7 @@ impl Camera {
             max_depth,
 
             thread_count,
-            render_threads: threads,
             results,
-            sender: Some(sender),
 
             mp,
             sty,
@@ -410,11 +383,6 @@ impl Camera {
     /// Returns an error if the file cannot be opened.
     pub fn render(&mut self, world: &Hittables, fname: &str) -> Result<(), Error> {
         assert!(
-            self.sender.is_some(),
-            "Camera is not ready, prepare it using prepare_cam()"
-        );
-
-        assert!(
             self.look_at != self.look_from,
             "look_at and look_from cannot be the same."
         );
@@ -432,28 +400,28 @@ impl Camera {
         let mut bw = BufWriter::new(f);
 
         // Render
+        let (mut threads, mut sender) = self.thread_setup_helper(world);
 
         writeln!(bw, "P3\n{iw} {ih}\n255")?;
 
-        let ser_world = Arc::new(postcard::to_allocvec(&world).unwrap());
-        let arc_cam = Arc::new(self.clone());
-
+        // Dispatching jobs
         for j in 0..ih {
             for i in 0..iw {
                 // decimal values for each color from 0.0 to 1.0
-                let thread_info =
-                    ThreadInfo::new(Arc::clone(&arc_cam), i, j, Arc::clone(&ser_world));
+                let thread_info = ThreadInfo::new(i, j);
 
-                self.sender.as_ref().unwrap().send(thread_info).unwrap();
+                sender.as_ref().unwrap().send(thread_info).unwrap();
             }
         }
 
-        drop(self.sender.take());
+        // Waiting for threads
+        drop(sender.take());
 
-        for thread in self.render_threads.drain(..) {
+        for thread in threads.drain(..) {
             thread.join().unwrap();
         }
 
+        // Writing to file
         for j in 0..ih {
             for i in 0..iw {
                 let color = self.results.remove(&(i, j)).unwrap().1;
@@ -464,37 +432,43 @@ impl Camera {
         bw.flush()?;
         self.mp.clear().unwrap();
 
-        self.prepare_cam();
-
         Ok(())
     }
 
-    fn prepare_cam(&mut self) {
-        assert!(self.thread_count > 0);
+    fn thread_setup_helper(
+        &self,
+        world: &Hittables,
+    ) -> (Vec<JoinHandle<()>>, Option<mpsc::Sender<ThreadInfo>>) {
+        // rendering environment
+        let arc_world = Arc::new(world.clone());
+        let arc_cam = Arc::new(self.clone());
+
+        // Channels
         let (sender, receiver) = mpsc::channel();
         let receiver = Arc::new(Mutex::new(receiver));
 
-        let results = Arc::new(DashMap::new());
-
+        // start threads
         let mut threads = Vec::with_capacity(self.thread_count);
-        self.sender = Some(sender);
 
         for id in 0..self.thread_count {
+            // Make progress bar for thread
             let work = (self.viewport.image_height * self.viewport.image_width) as u64
                 / self.thread_count as u64;
             let pb = self.mp.add(ProgressBar::new(work));
             pb.set_style(self.sty.clone());
 
+            // Start the thread
             threads.push(start_thread(
                 pb,
                 id,
                 Arc::clone(&receiver),
-                Arc::clone(&results),
+                Arc::clone(&self.results),
+                Arc::clone(&arc_cam),
+                Arc::clone(&arc_world),
             ));
         }
 
-        self.render_threads = threads;
-        self.results = results;
+        (threads, Some(sender))
     }
 }
 
@@ -522,9 +496,7 @@ impl Clone for Camera {
 
             // Clones have no threads
             thread_count: 0,
-            render_threads: vec![],
             results: Arc::clone(&self.results),
-            sender: None,
 
             mp: self.mp.clone(),
             sty: self.sty.clone(),
@@ -549,6 +521,8 @@ fn start_thread(
     id: usize,
     receiver: Arc<Mutex<mpsc::Receiver<ThreadInfo>>>,
     results: Arc<DashMap<(u32, u32), Color>>,
+    cam: Arc<Camera>,
+    world: Arc<Hittables>,
 ) -> JoinHandle<()> {
     //let pb = mp.add(ProgressBar::new(my_pixels));
     //pb.set_style(sty.clone());
@@ -557,26 +531,15 @@ fn start_thread(
         let id = id;
         let mut progress = 0;
 
-        let mut world: Option<Hittables> = None;
-
         loop {
             let message = receiver.lock().unwrap().recv();
 
             match message {
                 Ok(info) => {
-                    let cam = info.cam;
-
                     let thread_loc_i = info.i;
                     let thread_loc_j = info.j;
 
-                    world = if world.is_none() {
-                        postcard::from_bytes(&info.world).ok()
-                    } else {
-                        world
-                    };
-
-                    let w = world.as_ref().unwrap();
-                    let color = cam.cast_ray(thread_loc_i, thread_loc_j, cam.max_depth, w);
+                    let color = cam.cast_ray(thread_loc_i, thread_loc_j, cam.max_depth, &world);
 
                     results.insert((thread_loc_i, thread_loc_j), color);
                     if progress % 1000 == 0 {

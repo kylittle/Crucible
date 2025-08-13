@@ -8,6 +8,7 @@ use std::{
 use dashmap::DashMap;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use rand::Rng;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     objects::Hittables,
@@ -17,16 +18,30 @@ use crate::{
 /// Ray represents a ray of light with a direction
 /// and a starting point. Currently this takes ownership
 /// of the origin and direction which may be a mistake
-#[derive(Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Ray {
     origin: Point3,
     direction: Vec3,
+    tm: f64,
 }
 
 impl Ray {
-    /// Make a new ray
+    /// Make a new ray at time 0.0
     pub fn new(origin: Point3, direction: Vec3) -> Ray {
-        Ray { origin, direction }
+        Ray {
+            origin,
+            direction,
+            tm: 0.0,
+        }
+    }
+
+    /// Make a new ray at a time
+    pub fn new_at_time(origin: Point3, direction: Vec3, tm: f64) -> Ray {
+        Ray {
+            origin,
+            direction,
+            tm,
+        }
     }
 
     pub fn origin(&self) -> &Point3 {
@@ -35,6 +50,10 @@ impl Ray {
 
     pub fn direction(&self) -> &Vec3 {
         &self.direction
+    }
+
+    pub fn time(&self) -> f64 {
+        self.tm
     }
 
     pub fn at(&self, t: f64) -> Point3 {
@@ -351,6 +370,7 @@ impl Camera {
 
         // Store the colors from each sample
         let mut sample_colors = Vec::new();
+        let mut rng = rand::rng();
 
         // loop and sample
         for _ in 0..self.samples {
@@ -368,7 +388,8 @@ impl Camera {
             };
 
             let ray_dir = ps - ray_orig.clone();
-            let ray_cast = Ray::new(ray_orig, ray_dir);
+            let ray_time = rng.random();
+            let ray_cast = Ray::new_at_time(ray_orig, ray_dir, ray_time);
 
             sample_colors.push(ray_color(ray_cast, max_depth, world));
         }
@@ -542,9 +563,9 @@ fn start_thread(
                     let color = cam.cast_ray(thread_loc_i, thread_loc_j, cam.max_depth, &world);
 
                     results.insert((thread_loc_i, thread_loc_j), color);
-                    if progress % 1000 == 0 {
+                    if progress % 10 == 0 {
                         pb.set_message(format!("t{id}"));
-                        pb.inc(1000);
+                        pb.inc(10);
                     }
                     progress += 1;
                 }

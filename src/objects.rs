@@ -111,16 +111,25 @@ pub trait Hittable {
 /// equation x^2 + y^2 + z^2 = r^2
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Sphere {
-    center: Point3,
+    center: Ray,
     radius: f64,
     mat: Materials,
 }
 
 impl Sphere {
-    pub fn new(center: Point3, radius: f64, mat: Materials) -> Sphere {
+    pub fn new_stationary(center: Point3, radius: f64, mat: Materials) -> Sphere {
         assert!(radius >= 0.0, "Cannot make a sphere with negative radius");
         Sphere {
-            center,
+            center: Ray::new(center, Point3::origin()),
+            radius,
+            mat,
+        }
+    }
+
+    pub fn new_moving(center1: Point3, center2: Point3, radius: f64, mat: Materials) -> Sphere {
+        assert!(radius >= 0.0, "Cannot make a sphere with negative radius");
+        Sphere {
+            center: Ray::new(center1.clone(), center2 - center1),
             radius,
             mat,
         }
@@ -129,7 +138,8 @@ impl Sphere {
 
 impl Hittable for Sphere {
     fn hit(&self, r: &Ray, ray_t: &Interval) -> Option<HitRecord> {
-        let oc = self.center.clone() - r.origin().clone(); // (C - P) part of the circle eqn
+        let current_center = self.center.at(r.time());
+        let oc = current_center.clone() - r.origin().clone(); // (C - P) part of the circle eqn
 
         // Quadratic formula
         let a = r.direction().length_squared();
@@ -155,7 +165,7 @@ impl Hittable for Sphere {
         // We have a valid root:
         let t = root;
         let p = r.at(t);
-        let n = (p.clone() - self.center.clone()) / self.radius;
+        let n = (p.clone() - current_center) / self.radius;
         // Safety: This should be safe since n is divided by the radius making it unit length
         let rec = unsafe { HitRecord::new(r, p, n, t, self.mat.clone()) };
 

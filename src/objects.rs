@@ -1,8 +1,13 @@
+use std::{cmp::Ordering, sync::Arc};
+
 use serde::{Deserialize, Serialize};
+
+mod bvh;
 
 use crate::{
     environment::Ray,
     material::Materials,
+    objects::bvh::{Aabb, Axis},
     util::{Interval, Point3, Vec3},
 };
 
@@ -88,6 +93,7 @@ impl HitRecord {
 pub enum Hittables {
     Sphere(Sphere),
     HitList(HitList),
+    BVHWrapper(BVHWrapper),
 }
 
 impl Hittables {
@@ -95,6 +101,15 @@ impl Hittables {
         match self {
             Hittables::Sphere(s) => s.hit(r, ray_t),
             Hittables::HitList(l) => l.hit(r, ray_t),
+            Hittables::BVHWrapper(b) => b.hit(r, ray_t),
+        }
+    }
+
+    pub fn bounding_box(&self) -> &Aabb {
+        match self {
+            Hittables::Sphere(s) => s.bounding_box(),
+            Hittables::HitList(l) => l.bounding_box(),
+            Hittables::BVHWrapper(b) => b.bounding_box(),
         }
     }
 }
@@ -104,6 +119,7 @@ impl Hittables {
 /// or none.
 pub trait Hittable {
     fn hit(&self, r: &Ray, ray_t: &Interval) -> Option<HitRecord>;
+    fn bounding_box(&self) -> &Aabb;
 }
 
 /// The first object struct in the renderer. A sphere is
@@ -114,25 +130,48 @@ pub struct Sphere {
     center: Ray,
     radius: f64,
     mat: Materials,
+    bbox: Aabb,
 }
 
 impl Sphere {
     pub fn new_stationary(center: Point3, radius: f64, mat: Materials) -> Sphere {
         assert!(radius >= 0.0, "Cannot make a sphere with negative radius");
+
+        let rvec = Vec3::new(radius, radius, radius);
+        let bbox = Aabb::new_from_points(center.clone() - rvec.clone(), center.clone() + rvec);
+
         Sphere {
             center: Ray::new(center, Point3::origin()),
             radius,
             mat,
+            bbox,
         }
     }
 
     pub fn new_moving(center1: Point3, center2: Point3, radius: f64, mat: Materials) -> Sphere {
         assert!(radius >= 0.0, "Cannot make a sphere with negative radius");
-        Sphere {
+
+        let mut ms = Sphere {
             center: Ray::new(center1.clone(), center2 - center1),
             radius,
             mat,
-        }
+            bbox: Aabb::default(),
+        };
+
+        // TODO: Work this out so that it calculates the bbox dynamically based on time past for animations
+        let rvec = Vec3::new(radius, radius, radius);
+        let box1 = Aabb::new_from_points(
+            ms.center.at(0.0) - rvec.clone(),
+            ms.center.at(0.0) + rvec.clone(),
+        );
+        let box2 = Aabb::new_from_points(
+            ms.center.at(1.0) - rvec.clone(),
+            ms.center.at(1.0) + rvec.clone(),
+        );
+
+        ms.bbox = Aabb::new_from_boxes(&box1, &box2);
+
+        ms
     }
 }
 
@@ -171,6 +210,10 @@ impl Hittable for Sphere {
 
         Some(rec)
     }
+
+    fn bounding_box(&self) -> &Aabb {
+        &self.bbox
+    }
 }
 
 /// Next is a general API to store world objects
@@ -179,11 +222,15 @@ impl Hittable for Sphere {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct HitList {
     objs: Vec<Hittables>,
+    bbox: Aabb,
 }
 
 impl HitList {
     pub fn new(objs: Vec<Hittables>) -> HitList {
-        HitList { objs }
+        HitList {
+            objs,
+            bbox: Aabb::default(),
+        }
     }
 
     pub fn clear(&mut self) {
@@ -191,7 +238,8 @@ impl HitList {
     }
 
     pub fn add(&mut self, obj: Hittables) {
-        self.objs.push(obj);
+        self.objs.push(obj.clone());
+        self.bbox = Aabb::new_from_boxes(&self.bbox, obj.bounding_box());
     }
 }
 
@@ -215,5 +263,134 @@ impl Hittable for HitList {
         }
 
         rec
+    }
+
+    fn bounding_box(&self) -> &Aabb {
+        &self.bbox
+    }
+}
+
+/// Wraps hittable to allow for bounding volume hierarchy
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct BVHWrapper {
+    left: Arc<Hittables>,
+    right: Arc<Hittables>,
+    bbox: Aabb,
+}
+
+impl BVHWrapper {
+    /// Builds a BVHWrapper, simply pass a list and there should be a speedup
+    pub fn new(list: HitList) -> Hittables {
+        BVHWrapper::new_from_vec(list.objs.clone(), 0, list.objs.len())
+    }
+
+    pub fn new_from_vec(mut objects: Vec<Hittables>, start: usize, end: usize) -> Hittables {
+        let bvh = BVHWrapper::help_generate(&mut objects, start, end);
+
+        let bvh = match bvh {
+            Hittables::BVHWrapper(mut b) => {
+                b.bbox = Aabb::new_from_boxes(b.left.bounding_box(), b.right.bounding_box());
+                Hittables::BVHWrapper(b)
+            }
+            _ => bvh, // shouldnt get here
+        };
+
+        bvh
+    }
+
+    fn help_generate(objects: &mut Vec<Hittables>, start: usize, end: usize) -> Hittables {
+        let mut bbox = Aabb::default();
+        for obj in objects[start..end].iter().as_ref() {
+            bbox = Aabb::new_from_boxes(&bbox, obj.bounding_box());
+        }
+
+        let axis = bbox.longest_axis();
+
+        let object_span = end - start;
+
+        let left;
+        let right;
+
+        if object_span == 1 {
+            left = objects[start].clone();
+            right = objects[start].clone();
+        } else if object_span == 2 {
+            left = objects[start].clone();
+            right = objects[start + 1].clone();
+        } else {
+            let mut sub_list = objects[start..end].to_vec();
+            sub_list.sort_by(|a, b| BVHWrapper::box_compare(a, b, axis.clone()));
+
+            objects.splice(start..end, sub_list);
+
+            let mid = start + object_span / 2;
+            left = BVHWrapper::help_generate(objects, start, mid);
+            right = BVHWrapper::help_generate(objects, mid, end);
+        }
+
+        let left = Arc::new(left);
+        let right = Arc::new(right);
+
+        Hittables::BVHWrapper(BVHWrapper {
+            left,
+            right,
+            bbox,
+        })
+    }
+
+    fn box_compare(a: &Hittables, b: &Hittables, axis_index: Axis) -> Ordering {
+        let a_axis_interval = a.bounding_box().axis_interval(axis_index.clone());
+        let b_axis_interval = b.bounding_box().axis_interval(axis_index.clone());
+
+        if a_axis_interval.min() < b_axis_interval.min() {
+            Ordering::Less
+        } else if a_axis_interval.min() > b_axis_interval.min() {
+            Ordering::Greater
+        } else {
+            Ordering::Equal
+        }
+    }
+
+    // fn box_x_compare(a: Hittables, b: Hittables) -> Ordering {
+    //     BVHWrapper::box_compare(a, b, Axis::X)
+    // }
+
+    // fn box_y_compare(a: Hittables, b: Hittables) -> Ordering {
+    //     BVHWrapper::box_compare(a, b, Axis::Y)
+    // }
+
+    // fn box_z_compare(a: Hittables, b: Hittables) -> Ordering {
+    //     BVHWrapper::box_compare(a, b, Axis::Z)
+    // }
+}
+
+impl Hittable for BVHWrapper {
+    fn hit(&self, r: &Ray, ray_t: &Interval) -> Option<HitRecord> {
+        if !self.bbox.hit(r, &mut ray_t.clone()) {
+            return None;
+        }
+        let hit_left = self.left.hit(r, ray_t);
+
+        let hit_right = self.right.hit(
+            r,
+            &Interval::new(
+                ray_t.min(),
+                if let Some(item) = &hit_left {
+                    item.t
+                } else {
+                    ray_t.max()
+                },
+            ),
+        );
+
+        if hit_right.is_some() {
+            hit_right
+        } else {
+            hit_left
+        }
+    }
+
+    fn bounding_box(&self) -> &Aabb {
+        &self.bbox
     }
 }

@@ -2,7 +2,7 @@ use rand::Rng;
 
 use crate::{
     material::{Dielectric, Lambertian, Materials, Metal},
-    objects::{HitList, Hittables, Sphere},
+    objects::{BVHWrapper, HitList, Hittables, Sphere},
     util::{Color, Point3, Vec3},
 };
 
@@ -83,7 +83,8 @@ pub fn book1_end_scene() -> Hittables {
         material3,
     )));
 
-    Hittables::HitList(world)
+    BVHWrapper::new(world)
+    //Hittables::HitList(world)
 }
 
 /// Here is a function that generates a demo scene with moving spheres
@@ -166,5 +167,6 @@ pub fn book2_motion_blur_scene() -> Hittables {
         material3,
     )));
 
-    Hittables::HitList(world)
+    BVHWrapper::new(world)
+    //Hittables::HitList(world)
 }

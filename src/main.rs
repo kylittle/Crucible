@@ -1,6 +1,10 @@
 use clap::Parser;
 
-use ray_tracing::{demo_scenes, environment::Camera, util::Point3};
+use ray_tracing::{
+    demo_scenes,
+    environment::Camera,
+    util::Point3,
+};
 
 /// A ray-tracing renderer
 #[derive(Parser, Debug)]

@@ -609,12 +609,27 @@ pub fn random_color() -> Color {
     Color::new(v.x(), v.y(), v.z())
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Interval {
     range: (f64, f64),
 }
 
 impl Interval {
     pub const fn new(min: f64, max: f64) -> Interval {
+        Interval { range: (min, max) }
+    }
+
+    /// Pads an interval on either side by half the parameter
+    pub fn pad(self, delta: f64) -> Interval {
+        let padding = delta / 2.0;
+        Interval::new(self.min() - padding, self.max() + padding)
+    }
+
+    /// Builds a new interval from two others. Makes an interval
+    /// enclosing both of the input intervals
+    pub fn tight_enclose(a: &Interval, b: &Interval) -> Interval {
+        let min = if a.min() <= b.min() { a.min() } else { b.min() };
+        let max = if a.max() >= b.max() { a.max() } else { b.max() };
         Interval { range: (min, max) }
     }
 
@@ -625,25 +640,30 @@ impl Interval {
         self.range.1
     }
 
+    /// Returns the size of the interval.
     pub fn size(&self) -> f64 {
         self.range.1 - self.range.0
     }
 
+    /// Checks if a value is contained by an interval
     pub fn contains(&self, x: f64) -> bool {
         self.range.0 <= x && x <= self.range.1
     }
 
+    /// Checks if a value is strictly within an interval
     pub fn surrounds(&self, x: f64) -> bool {
         self.range.0 < x && x < self.range.1
     }
 
+    /// Clamps a value within an Interval.
+    /// Probably preferable to just use the f64 variant
     pub fn clamp(&self, x: f64) -> f64 {
         x.clamp(self.min(), self.max())
     }
-}
 
-pub const EMPTY: Interval = Interval::new(f64::INFINITY, -f64::INFINITY);
-pub const UNIVERSE: Interval = Interval::new(-f64::INFINITY, f64::INFINITY);
+    pub const EMPTY: Interval = Interval::new(f64::INFINITY, -f64::INFINITY);
+    pub const UNIVERSE: Interval = Interval::new(-f64::INFINITY, f64::INFINITY);
+}
 
 #[cfg(test)]
 mod tests {
@@ -814,7 +834,7 @@ mod tests {
         for _ in 0..10 {
             let x: f64 = rng.random_range(-500.0..500.0);
 
-            assert!(UNIVERSE.contains(x));
+            assert!(Interval::UNIVERSE.contains(x));
         }
     }
 
@@ -828,7 +848,7 @@ mod tests {
         for _ in 0..10 {
             let x: f64 = rng.random_range(-500.0..500.0);
 
-            assert!(!EMPTY.contains(x));
+            assert!(!Interval::EMPTY.contains(x));
         }
     }
 }

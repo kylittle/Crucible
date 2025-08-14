@@ -1,8 +1,5 @@
 use std::{
-    fs::OpenOptions,
-    io::{BufWriter, Error, Write},
-    sync::{Arc, Mutex, mpsc},
-    thread::{self, JoinHandle},
+    fs::OpenOptions, io::{BufWriter, Error, Write}, sync::{mpsc, Arc, Mutex, RwLock}, thread::{self, JoinHandle}
 };
 
 use dashmap::DashMap;
@@ -390,7 +387,6 @@ impl Camera {
             let ray_dir = ps - ray_orig.clone();
             let ray_time = rng.random();
             let ray_cast = Ray::new_at_time(ray_orig, ray_dir, ray_time);
-
             sample_colors.push(ray_color(ray_cast, max_depth, world));
         }
 
@@ -461,7 +457,7 @@ impl Camera {
         world: &Hittables,
     ) -> (Vec<JoinHandle<()>>, Option<mpsc::Sender<ThreadInfo>>) {
         // rendering environment
-        let arc_world = Arc::new(world.clone());
+        let arc_world = Arc::new(RwLock::new(world.clone()));
         let arc_cam = Arc::new(self.clone());
 
         // Channels
@@ -543,7 +539,7 @@ fn start_thread(
     receiver: Arc<Mutex<mpsc::Receiver<ThreadInfo>>>,
     results: Arc<DashMap<(u32, u32), Color>>,
     cam: Arc<Camera>,
-    world: Arc<Hittables>,
+    world: Arc<RwLock<Hittables>>,
 ) -> JoinHandle<()> {
     //let pb = mp.add(ProgressBar::new(my_pixels));
     //pb.set_style(sty.clone());
@@ -551,6 +547,9 @@ fn start_thread(
     thread::spawn(move || {
         let id = id;
         let mut progress = 0;
+
+        let cam = Box::new(cam);
+        let world = Box::new(world);
 
         loop {
             let message = receiver.lock().unwrap().recv();
@@ -560,7 +559,7 @@ fn start_thread(
                     let thread_loc_i = info.i;
                     let thread_loc_j = info.j;
 
-                    let color = cam.cast_ray(thread_loc_i, thread_loc_j, cam.max_depth, &world);
+                    let color = cam.cast_ray(thread_loc_i, thread_loc_j, cam.max_depth, &world.read().unwrap());
 
                     results.insert((thread_loc_i, thread_loc_j), color);
                     if progress % 10 == 0 {
@@ -584,10 +583,9 @@ fn ray_color(r: Ray, depth: u32, world: &Hittables) -> Color {
     if depth == 0 {
         return Color::black();
     }
-
     // The interval starts at 0.001 to fix the 'shadow acne' behavior
     let hit = world.hit(&r, &Interval::new(0.001, f64::INFINITY));
-
+    
     if let Some(h) = hit {
         let mut attenuation = Color::black();
 

@@ -1,8 +1,11 @@
+use std::sync::Arc;
+
 use rand::Rng;
 
 use crate::{
     material::{Dielectric, Lambertian, Materials, Metal},
     objects::{BVHWrapper, HitList, Hittables, Sphere},
+    texture::{CheckerTexture, Textures},
     util::{Color, Point3, Vec3},
 };
 
@@ -10,7 +13,13 @@ use crate::{
 pub fn book1_end_scene() -> Hittables {
     let mut world = HitList::default();
 
-    let ground_material = Materials::Lambertian(Lambertian::new(Color::new(0.5, 0.5, 0.5), 1.0));
+    let checker = Arc::new(Textures::CheckerTexture(CheckerTexture::new_from_color(
+        0.32,
+        Color::new(0.2, 0.3, 0.1),
+        Color::new(0.9, 0.9, 0.9),
+    )));
+
+    let ground_material = Materials::Lambertian(Lambertian::new_from_texture(checker, 1.0));
     world.add(Hittables::Sphere(Sphere::new_stationary(
         Point3::new(0.0, -1000.0, 0.0),
         1000.0,
@@ -33,7 +42,8 @@ pub fn book1_end_scene() -> Hittables {
                 if choose_mat < 0.8 {
                     // diffuse
                     let albedo = Color::random_color() * Color::random_color();
-                    let sphere_material = Materials::Lambertian(Lambertian::new(albedo, 1.0));
+                    let sphere_material =
+                        Materials::Lambertian(Lambertian::new_from_color(albedo, 1.0));
                     world.add(Hittables::Sphere(Sphere::new_stationary(
                         center,
                         0.2,
@@ -69,7 +79,8 @@ pub fn book1_end_scene() -> Hittables {
         material1,
     )));
 
-    let material2 = Materials::Lambertian(Lambertian::new(Color::new(0.4, 0.2, 0.1), 1.0));
+    let material2 =
+        Materials::Lambertian(Lambertian::new_from_color(Color::new(0.4, 0.2, 0.1), 1.0));
     world.add(Hittables::Sphere(Sphere::new_stationary(
         Point3::new(-4.0, 1.0, 0.0),
         1.0,
@@ -83,7 +94,7 @@ pub fn book1_end_scene() -> Hittables {
         material3,
     )));
 
-    BVHWrapper::new(world)
+    BVHWrapper::new_wrapper(world)
     //Hittables::HitList(world)
 }
 
@@ -92,7 +103,13 @@ pub fn book1_end_scene() -> Hittables {
 pub fn book2_motion_blur_scene() -> Hittables {
     let mut world = HitList::default();
 
-    let ground_material = Materials::Lambertian(Lambertian::new(Color::new(0.5, 0.5, 0.5), 1.0));
+    let checker = Arc::new(Textures::CheckerTexture(CheckerTexture::new_from_color(
+        0.32,
+        Color::new(0.2, 0.3, 0.1),
+        Color::new(0.9, 0.9, 0.9),
+    )));
+
+    let ground_material = Materials::Lambertian(Lambertian::new_from_texture(checker, 1.0));
     world.add(Hittables::Sphere(Sphere::new_stationary(
         Point3::new(0.0, -1000.0, 0.0),
         1000.0,
@@ -115,7 +132,8 @@ pub fn book2_motion_blur_scene() -> Hittables {
                 if choose_mat < 0.8 {
                     // diffuse
                     let albedo = Color::random_color() * Color::random_color();
-                    let sphere_material = Materials::Lambertian(Lambertian::new(albedo, 1.0));
+                    let sphere_material =
+                        Materials::Lambertian(Lambertian::new_from_color(albedo, 1.0));
                     let center2 = center.clone() + Vec3::new(0.0, rng.random_range(0.0..0.5), 0.0);
                     world.add(Hittables::Sphere(Sphere::new_moving(
                         center,
@@ -153,7 +171,8 @@ pub fn book2_motion_blur_scene() -> Hittables {
         material1,
     )));
 
-    let material2 = Materials::Lambertian(Lambertian::new(Color::new(0.4, 0.2, 0.1), 1.0));
+    let material2 =
+        Materials::Lambertian(Lambertian::new_from_color(Color::new(0.4, 0.2, 0.1), 1.0));
     world.add(Hittables::Sphere(Sphere::new_stationary(
         Point3::new(-4.0, 1.0, 0.0),
         1.0,
@@ -167,6 +186,6 @@ pub fn book2_motion_blur_scene() -> Hittables {
         material3,
     )));
 
-    BVHWrapper::new(world)
+    BVHWrapper::new_wrapper(world)
     //Hittables::HitList(world)
 }

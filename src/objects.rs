@@ -19,6 +19,8 @@ pub struct HitRecord {
     normal: Vec3,
     mat: Materials,
     t: f64,
+    pub u_texture: f64,
+    pub v_texture: f64,
     front_face: bool,
 }
 
@@ -34,6 +36,8 @@ impl HitRecord {
         loc: Point3,
         normal: Vec3,
         t: f64,
+        u_texture: f64,
+        v_texture: f64,
         mat: Materials,
     ) -> HitRecord {
         let front_face = hit_ray.direction().dot(&normal) < 0.0;
@@ -44,6 +48,8 @@ impl HitRecord {
             normal: new_normal,
             mat,
             t,
+            u_texture,
+            v_texture,
             front_face,
         }
     }
@@ -57,6 +63,8 @@ impl HitRecord {
         loc: Point3,
         normal: Vec3,
         t: f64,
+        u_texture: f64,
+        v_texture: f64,
         mat: Materials,
     ) -> HitRecord {
         let normal = normal.unit_vector();
@@ -68,6 +76,8 @@ impl HitRecord {
             normal: new_normal,
             mat,
             t,
+            u_texture,
+            v_texture,
             front_face,
         }
     }
@@ -206,7 +216,7 @@ impl Hittable for Sphere {
         let p = r.at(t);
         let n = (p.clone() - current_center) / self.radius;
         // Safety: This should be safe since n is divided by the radius making it unit length
-        let rec = unsafe { HitRecord::new(r, p, n, t, self.mat.clone()) };
+        let rec = unsafe { HitRecord::new(r, p, n, t, 0.0, 0.0, self.mat.clone()) };
 
         Some(rec)
     }
@@ -280,22 +290,20 @@ pub struct BVHWrapper {
 
 impl BVHWrapper {
     /// Builds a BVHWrapper, simply pass a list and there should be a speedup
-    pub fn new(list: HitList) -> Hittables {
+    pub fn new_wrapper(list: HitList) -> Hittables {
         BVHWrapper::new_from_vec(list.objs.clone(), 0, list.objs.len())
     }
 
     pub fn new_from_vec(mut objects: Vec<Hittables>, start: usize, end: usize) -> Hittables {
         let bvh = BVHWrapper::help_generate(&mut objects, start, end);
 
-        let bvh = match bvh {
+        match bvh {
             Hittables::BVHWrapper(mut b) => {
                 b.bbox = Aabb::new_from_boxes(b.left.bounding_box(), b.right.bounding_box());
                 Hittables::BVHWrapper(b)
             }
             _ => bvh, // shouldnt get here
-        };
-
-        bvh
+        }
     }
 
     fn help_generate(objects: &mut Vec<Hittables>, start: usize, end: usize) -> Hittables {
@@ -331,11 +339,7 @@ impl BVHWrapper {
         let left = Arc::new(left);
         let right = Arc::new(right);
 
-        Hittables::BVHWrapper(BVHWrapper {
-            left,
-            right,
-            bbox,
-        })
+        Hittables::BVHWrapper(BVHWrapper { left, right, bbox })
     }
 
     fn box_compare(a: &Hittables, b: &Hittables, axis_index: Axis) -> Ordering {

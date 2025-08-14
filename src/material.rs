@@ -1,15 +1,18 @@
+use std::sync::Arc;
+
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
 use crate::{
     environment::Ray,
     objects::HitRecord,
+    texture::{SolidColor, Textures},
     util::{Color, Vec3},
 };
 
 /// TODO: Add macros to autogenerate this stuff.
 /// Especially for custom user materials
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum Materials {
     Lambertian(Lambertian),
     Metal(Metal),
@@ -26,18 +29,6 @@ impl Materials {
     }
 }
 
-impl Clone for Materials {
-    fn clone(&self) -> Self {
-        match self {
-            Materials::Lambertian(l) => {
-                Materials::Lambertian(Lambertian::new(l.albedo.clone(), l.scatter_prob))
-            }
-            Materials::Metal(m) => Materials::Metal(Metal::new(m.albedo.clone(), m.fuzz)),
-            Materials::Dielectric(d) => Materials::Dielectric(Dielectric::new(d.refraction_index)),
-        }
-    }
-}
-
 /// This trait defines the ray scattering
 /// behavior of a material. Scatter returns an option
 /// representing if the ray scattered or was absorbed (None)
@@ -46,18 +37,25 @@ pub trait Material {
     fn scatter(&self, r_in: &Ray, rec: &HitRecord, attenuation: &mut Color) -> Option<Ray>;
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Lambertian {
-    albedo: Color,
+    tex: Arc<Textures>,
     scatter_prob: f64,
 }
 
 /// A perfect matte material. Prob gives the chance to
 /// scatter a ray
 impl Lambertian {
-    pub fn new(c: Color, prob: f64) -> Lambertian {
+    pub fn new_from_color(c: Color, prob: f64) -> Lambertian {
         Lambertian {
-            albedo: c,
+            tex: Arc::new(Textures::SolidColor(SolidColor::new_from_color(c))),
+            scatter_prob: prob,
+        }
+    }
+
+    pub fn new_from_texture(tex: Arc<Textures>, prob: f64) -> Lambertian {
+        Lambertian {
+            tex,
             scatter_prob: prob,
         }
     }
@@ -73,7 +71,10 @@ impl Material for Lambertian {
 
         let scattered = Ray::new_at_time(rec.position(), scatter_dir, r_in.time());
 
-        *attenuation = self.albedo.clone() / self.scatter_prob;
+        *attenuation = self
+            .tex
+            .value(rec.u_texture, rec.v_texture, &rec.position())
+            / self.scatter_prob;
 
         let mut rng = rand::rng();
 
@@ -87,7 +88,7 @@ impl Material for Lambertian {
 
 /// A reflective material, bounces rays against the
 /// normal. Fuzz allows the metal to not perfectly reflect
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Metal {
     albedo: Color,
     fuzz: f64,
@@ -123,7 +124,7 @@ impl Material for Metal {
 }
 
 /// A material representing water, or glass
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Dielectric {
     refraction_index: f64,
 }

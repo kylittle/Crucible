@@ -189,3 +189,27 @@ pub fn book2_motion_blur_scene() -> Hittables {
     BVHWrapper::new_wrapper(world)
     //Hittables::HitList(world)
 }
+
+pub fn checkered_spheres() -> Hittables {
+    let mut world = HitList::default();
+
+    let checker = Arc::new(Textures::CheckerTexture(CheckerTexture::new_from_color(
+        0.32,
+        Color::new(0.2, 0.3, 0.1),
+        Color::new(0.9, 0.9, 0.9),
+    )));
+
+    world.add(Hittables::Sphere(Sphere::new_stationary(
+        Point3::new(0.0, -10.0, 0.0),
+        10.0,
+        Materials::Lambertian(Lambertian::new_from_texture(checker.clone(), 1.0)),
+    )));
+
+    world.add(Hittables::Sphere(Sphere::new_stationary(
+        Point3::new(0.0, 10.0, 0.0),
+        10.0,
+        Materials::Lambertian(Lambertian::new_from_texture(checker, 1.0)),
+    )));
+
+    BVHWrapper::new_wrapper(world)
+}

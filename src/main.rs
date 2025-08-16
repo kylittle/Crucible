@@ -26,6 +26,7 @@ fn main() {
         1 => demo_scenes::book1_end_scene(),
         2 => demo_scenes::book2_motion_blur_scene(),
         3 => demo_scenes::checkered_spheres(),
+        4 => demo_scenes::triangle_test(),
         _ => {
             eprintln!("Invalid world number. Selecting default scene");
             demo_scenes::book1_end_scene()

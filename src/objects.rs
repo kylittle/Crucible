@@ -58,7 +58,7 @@ impl HitRecord {
     /// the unsafe variant my making sure the normal is a unit vector
     /// this is expensive and if there are math tricks available the unsafe
     /// variant may be better
-    pub fn safe_new<T>(
+    pub fn safe_new(
         hit_ray: &Ray,
         loc: Point3,
         normal: Vec3,
@@ -104,6 +104,7 @@ pub enum Hittables {
     Sphere(Sphere),
     HitList(HitList),
     BVHWrapper(BVHWrapper),
+    Triangle(Triangle),
 }
 
 impl Hittables {
@@ -112,6 +113,7 @@ impl Hittables {
             Hittables::Sphere(s) => s.hit(r, ray_t),
             Hittables::HitList(l) => l.hit(r, ray_t),
             Hittables::BVHWrapper(b) => b.hit(r, ray_t),
+            Hittables::Triangle(t) => t.hit(r, ray_t),
         }
     }
 
@@ -120,6 +122,7 @@ impl Hittables {
             Hittables::Sphere(s) => s.bounding_box(),
             Hittables::HitList(l) => l.bounding_box(),
             Hittables::BVHWrapper(b) => b.bounding_box(),
+            Hittables::Triangle(t) => t.bounding_box(),
         }
     }
 }
@@ -391,6 +394,100 @@ impl Hittable for BVHWrapper {
             hit_right
         } else {
             hit_left
+        }
+    }
+
+    fn bounding_box(&self) -> &Aabb {
+        &self.bbox
+    }
+}
+
+/// Fundamental building block for mesh loading.
+/// TODO: We are ignoring textures for now to get shapes working nicely
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Triangle {
+    a: Point3,
+    b: Point3,
+    c: Point3,
+    mat: Materials,
+    bbox: Aabb,
+}
+
+impl Triangle {
+    pub fn new(a: Point3, b: Point3, c: Point3, mat: Materials) -> Triangle {
+        let max_points = Triangle::max_points(&a, &b, &c);
+        let min_points = Triangle::min_points(&a, &b, &c);
+
+        let x_int = Interval::new(min_points.0, max_points.0);
+        let y_int = Interval::new(min_points.1, max_points.1);
+        let z_int = Interval::new(min_points.2, max_points.2);
+
+        let bbox = Aabb::new_from_intervals(x_int, y_int, z_int);
+
+        Triangle { a, b, c, mat, bbox }
+    }
+
+    fn max_points(a: &Point3, b: &Point3, c: &Point3) -> (f64, f64, f64) {
+        let x = a.x().max(b.x().max(c.x()));
+        let y = a.y().max(b.y().max(c.y()));
+        let z = a.z().max(b.z().max(c.z()));
+
+        (x, y, z)
+    }
+
+    fn min_points(a: &Point3, b: &Point3, c: &Point3) -> (f64, f64, f64) {
+        let x = a.x().min(b.x().min(c.x()));
+        let y = a.y().min(b.y().min(c.y()));
+        let z = a.z().min(b.z().min(c.z()));
+
+        (x, y, z)
+    }
+}
+
+impl Hittable for Triangle {
+    /// Based on the Moller-Trumbore algorithm
+    fn hit(&self, r: &Ray, ray_t: &Interval) -> Option<HitRecord> {
+        let e1 = self.b.clone() - self.a.clone();
+        let e2 = self.c.clone() - self.a.clone();
+
+        let ray_cross_e2 = r.direction().cross(&e2);
+        let det = e1.dot(&ray_cross_e2);
+
+        if det > -f64::EPSILON && det < f64::EPSILON {
+            // The ray is parallel to the triangle
+            return None;
+        }
+
+        let inv_det = 1.0 / det;
+        let s = r.origin().clone() - self.a.clone();
+        let u = inv_det * s.dot(&ray_cross_e2);
+        if u < 0.0 || u > 1.0 {
+            return None;
+        }
+
+        let s_cross_e1 = s.cross(&e1);
+        let v = inv_det * r.direction().dot(&s_cross_e1);
+        if v < 0.0 || u + v > 1.0 {
+            return None;
+        }
+
+        // Compute t to find where the intersection point occurs
+        let t = inv_det * e2.dot(&s_cross_e1);
+
+        if ray_t.surrounds(t) {
+            let intersection_point = r.at(t);
+            let normal = e1.cross(&e2);
+            Some(HitRecord::safe_new(
+                r,
+                intersection_point,
+                normal,
+                t,
+                0.0,
+                0.0,
+                self.mat.clone(),
+            ))
+        } else {
+            None
         }
     }
 

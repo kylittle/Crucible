@@ -4,7 +4,7 @@ use rand::Rng;
 
 use crate::{
     material::{Dielectric, Lambertian, Materials, Metal},
-    objects::{BVHWrapper, HitList, Hittables, Sphere},
+    objects::{BVHWrapper, HitList, Hittables, Sphere, Triangle},
     texture::{CheckerTexture, Textures},
     util::{Color, Point3, Vec3},
 };
@@ -209,6 +209,19 @@ pub fn checkered_spheres() -> Hittables {
         Point3::new(0.0, 10.0, 0.0),
         10.0,
         Materials::Lambertian(Lambertian::new_from_texture(checker, 1.0)),
+    )));
+
+    BVHWrapper::new_wrapper(world)
+}
+
+pub fn triangle_test() -> Hittables {
+    let mut world = HitList::default();
+
+    world.add(Hittables::Triangle(Triangle::new(
+        Point3::new(-3.0, 1.0, 3.0),
+        Point3::new(4.0, -2.0, 0.0),
+        Point3::new(0.0, 5.0, 4.0),
+        Materials::Lambertian(Lambertian::new_from_color(Color::new(0.0, 0.0, 1.0), 1.0)),
     )));
 
     BVHWrapper::new_wrapper(world)

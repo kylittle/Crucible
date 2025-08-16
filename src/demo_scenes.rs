@@ -3,8 +3,9 @@ use std::sync::Arc;
 use rand::Rng;
 
 use crate::{
+    asset_loader,
     material::{Dielectric, Lambertian, Materials, Metal},
-    objects::{BVHWrapper, HitList, Hittables, Sphere, Triangle},
+    objects::{BVHWrapper, HitList, Hittables, Sphere},
     texture::{CheckerTexture, Textures},
     util::{Color, Point3, Vec3},
 };
@@ -190,6 +191,7 @@ pub fn book2_motion_blur_scene() -> Hittables {
     //Hittables::HitList(world)
 }
 
+/// Demo scene for textures
 pub fn checkered_spheres() -> Hittables {
     let mut world = HitList::default();
 
@@ -214,14 +216,29 @@ pub fn checkered_spheres() -> Hittables {
     BVHWrapper::new_wrapper(world)
 }
 
-pub fn triangle_test() -> Hittables {
+/// Demo scene for loading in .obj model files
+pub fn load_teapot() -> Hittables {
     let mut world = HitList::default();
 
-    world.add(Hittables::Triangle(Triangle::new(
-        Point3::new(-3.0, 1.0, 3.0),
-        Point3::new(4.0, -2.0, 0.0),
-        Point3::new(0.0, 5.0, 4.0),
-        Materials::Lambertian(Lambertian::new_from_color(Color::new(0.0, 0.0, 1.0), 1.0)),
+    // add the teapot
+    world.add(Hittables::HitList(asset_loader::load_obj(
+        "assets/teapot.obj",
+        0.5,
+        Point3::new(3.0, 0.0, 0.0),
+    )));
+
+    // add the ground
+    let checker = Arc::new(Textures::CheckerTexture(CheckerTexture::new_from_color(
+        0.32,
+        Color::new(0.2, 0.3, 0.1),
+        Color::new(0.9, 0.9, 0.9),
+    )));
+
+    let ground_material = Materials::Lambertian(Lambertian::new_from_texture(checker, 1.0));
+    world.add(Hittables::Sphere(Sphere::new_stationary(
+        Point3::new(0.0, -1000.0, 0.0),
+        1000.0,
+        ground_material,
     )));
 
     BVHWrapper::new_wrapper(world)

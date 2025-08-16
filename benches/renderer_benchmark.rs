@@ -2,7 +2,7 @@ use criterion::{Criterion, criterion_group, criterion_main};
 
 use std::{fs, thread};
 
-use ray_tracing::{demo_scenes, environment::Camera};
+use ray_tracing::{demo_scenes, camera::Camera};
 
 /// Tests the renderer using different thread counts
 pub fn rendering_benchmark(c: &mut Criterion) {

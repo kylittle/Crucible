@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 mod bvh;
 
 use crate::{
-    environment::Ray,
+    camera::Ray,
     material::Materials,
     objects::bvh::{Aabb, Axis},
     util::{Interval, Point3, Vec3},
@@ -452,12 +452,12 @@ impl Hittable for Triangle {
 
         let ray_cross_e2 = r.direction().cross(&e2);
         let det = e1.dot(&ray_cross_e2);
+        //dbg!(det);
 
         if det > -f64::EPSILON && det < f64::EPSILON {
             // The ray is parallel to the triangle
             return None;
         }
-
         let inv_det = 1.0 / det;
         let s = r.origin().clone() - self.a.clone();
         let u = inv_det * s.dot(&ray_cross_e2);
@@ -467,12 +467,15 @@ impl Hittable for Triangle {
 
         let s_cross_e1 = s.cross(&e1);
         let v = inv_det * r.direction().dot(&s_cross_e1);
+        //dbg!(u);
+        //dbg!(v);
         if v < 0.0 || u + v > 1.0 {
             return None;
         }
 
         // Compute t to find where the intersection point occurs
         let t = inv_det * e2.dot(&s_cross_e1);
+        //eprintln!("Triangle");
 
         if ray_t.surrounds(t) {
             let intersection_point = r.at(t);

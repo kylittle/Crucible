@@ -1,6 +1,6 @@
 use clap::Parser;
 
-use ray_tracing::{demo_scenes, environment::Camera, util::Point3};
+use ray_tracing::{camera::Camera, demo_scenes, util::Point3};
 
 /// A ray-tracing renderer
 #[derive(Parser, Debug)]
@@ -26,7 +26,7 @@ fn main() {
         1 => demo_scenes::book1_end_scene(),
         2 => demo_scenes::book2_motion_blur_scene(),
         3 => demo_scenes::checkered_spheres(),
-        4 => demo_scenes::triangle_test(),
+        4 => demo_scenes::load_teapot(),
         _ => {
             eprintln!("Invalid world number. Selecting default scene");
             demo_scenes::book1_end_scene()
@@ -37,7 +37,7 @@ fn main() {
     // Make cam mutable to change its behaviors
     let mut cam = Camera::new(16.0 / 9.0, 400, threads);
 
-    cam.set_samples(100);
+    cam.set_samples(500);
     cam.set_max_depth(50);
 
     cam.look_from(Point3::new(13.0, 2.0, 3.0));
@@ -47,9 +47,6 @@ fn main() {
 
     cam.set_defocus_angle(0.6);
     cam.set_focus_dist(10.0);
-
-    // cam.set_max_depth(50);
-    // cam.set_samples(100);
 
     match cam.render(&world, args.file.as_str()) {
         Ok(()) => {

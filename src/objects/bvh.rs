@@ -1,5 +1,5 @@
 use crate::{
-    environment::Ray,
+    camera::Ray,
     util::{Interval, Point3},
 };
 

@@ -4,7 +4,7 @@ use rand::Rng;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    environment::Ray,
+    camera::Ray,
     objects::HitRecord,
     texture::{SolidColor, Textures},
     util::{Color, Vec3},

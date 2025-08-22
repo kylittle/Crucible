@@ -264,6 +264,11 @@ impl Camera {
         self.fix_viewport();
     }
 
+    /// Changes the number of threads a camera will render with
+    pub fn set_threads(&mut self, threads: usize) {
+        self.thread_count = threads;
+    }
+
     // Call whenever any of these vars change
     fn fix_viewport(&mut self) {
         let h = (self.vfov.get_angle() / 2.0).tan();

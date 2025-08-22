@@ -1,6 +1,4 @@
-use std::{cmp::Ordering, sync::Arc};
-
-use serde::{Deserialize, Serialize};
+use std::{cmp::Ordering, f64::consts::PI, sync::Arc};
 
 mod bvh;
 
@@ -99,7 +97,7 @@ impl HitRecord {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub enum Hittables {
     Sphere(Sphere),
     HitList(HitList),
@@ -138,7 +136,7 @@ pub trait Hittable {
 /// The first object struct in the renderer. A sphere is
 /// relatively simple and implements Hittable by solving the
 /// equation x^2 + y^2 + z^2 = r^2
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct Sphere {
     center: Ray,
     radius: f64,
@@ -186,6 +184,13 @@ impl Sphere {
 
         ms
     }
+
+    fn get_sphere_uv(p: &Point3) -> (f64, f64) {
+        let theta = (-p.y()).acos();
+        let phi = (-p.z()).atan2(p.x()) + PI;
+
+        (phi / (2.0 * PI), theta / PI)
+    }
 }
 
 impl Hittable for Sphere {
@@ -218,8 +223,11 @@ impl Hittable for Sphere {
         let t = root;
         let p = r.at(t);
         let n = (p.clone() - current_center) / self.radius;
+
+        // Calc uv for textures:
+        let (u, v) = Sphere::get_sphere_uv(&n);
         // Safety: This should be safe since n is divided by the radius making it unit length
-        let rec = unsafe { HitRecord::new(r, p, n, t, 0.0, 0.0, self.mat.clone()) };
+        let rec = unsafe { HitRecord::new(r, p, n, t, u, v, self.mat.clone()) };
 
         Some(rec)
     }
@@ -232,7 +240,7 @@ impl Hittable for Sphere {
 /// Next is a general API to store world objects
 /// it also implements Hittable and handles hits for each
 /// object checking them all.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct HitList {
     objs: Vec<Hittables>,
     bbox: Aabb,
@@ -284,7 +292,7 @@ impl Hittable for HitList {
 }
 
 /// Wraps hittable to allow for bounding volume hierarchy
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct BVHWrapper {
     left: Arc<Hittables>,
     right: Arc<Hittables>,
@@ -404,7 +412,7 @@ impl Hittable for BVHWrapper {
 
 /// Fundamental building block for mesh loading.
 /// TODO: We are ignoring textures for now to get shapes working nicely
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct Triangle {
     a: Point3,
     b: Point3,

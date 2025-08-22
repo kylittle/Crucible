@@ -1,13 +1,15 @@
 use std::sync::Arc;
 
-use serde::{Deserialize, Serialize};
+use crate::{
+    asset_loader::RTWImage,
+    util::{Color, Interval, Point3},
+};
 
-use crate::util::{Color, Point3};
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub enum Textures {
     SolidColor(SolidColor),
     CheckerTexture(CheckerTexture),
+    ImageTexture(ImageTexture),
 }
 
 impl Textures {
@@ -15,6 +17,7 @@ impl Textures {
         match self {
             Textures::SolidColor(s) => s.value(u, v, p),
             Textures::CheckerTexture(c) => c.value(u, v, p),
+            Textures::ImageTexture(i) => i.value(u, v, p),
         }
     }
 }
@@ -23,7 +26,7 @@ pub trait Texture {
     fn value(&self, u: f64, v: f64, p: &Point3) -> Color;
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct SolidColor {
     albedo: Color,
 }
@@ -48,7 +51,7 @@ impl Texture for SolidColor {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct CheckerTexture {
     inv_scale: f64,
     even: Arc<Textures>,
@@ -90,5 +93,35 @@ impl Texture for CheckerTexture {
         } else {
             self.odd.value(u, v, p)
         }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ImageTexture {
+    image: RTWImage,
+}
+
+impl ImageTexture {
+    pub fn new(filename: &str) -> ImageTexture {
+        let image = RTWImage::new(filename);
+
+        ImageTexture { image }
+    }
+}
+
+impl Texture for ImageTexture {
+    fn value(&self, u: f64, v: f64, _p: &Point3) -> Color {
+        let image_interval = Interval::new(0.0, 1.0);
+        let u = image_interval.clamp(u);
+        let v = 1.0 - image_interval.clamp(v); // Flip V to image coordinates
+
+        let i = (u * self.image.width() as f64) as usize;
+        let j = (v * self.image.height() as f64) as usize;
+
+        if i == 562 && j == 241 {
+            eprintln!("Making land");
+        }
+
+        self.image.pixel_data(i, j)
     }
 }

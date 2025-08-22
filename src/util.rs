@@ -811,18 +811,18 @@ mod tests {
     fn contains_test() {
         let i = Interval::new(3.0, 20.0);
 
-        assert_eq!(i.contains(3.0), true);
-        assert_eq!(i.contains(21.0), false);
-        assert_eq!(i.contains(15.0), true);
+        assert!(i.contains(3.0));
+        assert!(!i.contains(21.0));
+        assert!(i.contains(15.0));
     }
 
     #[test]
     fn surrounds_test() {
         let i = Interval::new(3.0, 20.0);
 
-        assert_eq!(i.surrounds(3.0), false);
-        assert_eq!(i.surrounds(21.0), false);
-        assert_eq!(i.surrounds(15.0), true);
+        assert!(!i.surrounds(3.0));
+        assert!(!i.surrounds(21.0));
+        assert!(i.surrounds(15.0));
     }
 
     #[test]

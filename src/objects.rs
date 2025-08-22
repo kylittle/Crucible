@@ -469,7 +469,7 @@ impl Hittable for Triangle {
         let inv_det = 1.0 / det;
         let s = r.origin().clone() - self.a.clone();
         let u = inv_det * s.dot(&ray_cross_e2);
-        if u < 0.0 || u > 1.0 {
+        if !(0.0..=1.0).contains(&u) {
             return None;
         }
 

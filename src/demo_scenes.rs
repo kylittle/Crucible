@@ -3,14 +3,16 @@ use std::sync::Arc;
 use rand::Rng;
 
 use crate::{
+    asset_loader,
+    camera::Camera,
     material::{Dielectric, Lambertian, Materials, Metal},
     objects::{BVHWrapper, HitList, Hittables, Sphere},
-    texture::{CheckerTexture, Textures},
+    texture::{CheckerTexture, ImageTexture, Textures},
     util::{Color, Point3, Vec3},
 };
 
 /// Here is a function that generates the demo scene from the end of book 1
-pub fn book1_end_scene() -> Hittables {
+pub fn book1_end_scene(threads: usize) -> (Hittables, Camera) {
     let mut world = HitList::default();
 
     let checker = Arc::new(Textures::CheckerTexture(CheckerTexture::new_from_color(
@@ -94,13 +96,27 @@ pub fn book1_end_scene() -> Hittables {
         material3,
     )));
 
-    BVHWrapper::new_wrapper(world)
+    // Make cam mutable to change its behaviors
+    let mut cam = Camera::new(16.0 / 9.0, 400, threads);
+
+    cam.set_samples(500);
+    cam.set_max_depth(50);
+
+    cam.look_from(Point3::new(13.0, 2.0, 3.0));
+    cam.look_at(Point3::new(0.0, 0.0, 0.0));
+
+    cam.set_vfov(20.0);
+
+    cam.set_defocus_angle(0.6);
+    cam.set_focus_dist(10.0);
+
+    (BVHWrapper::new_wrapper(world), cam)
     //Hittables::HitList(world)
 }
 
 /// Here is a function that generates a demo scene with moving spheres
 /// TODO: make this an animation
-pub fn book2_motion_blur_scene() -> Hittables {
+pub fn book2_motion_blur_scene(threads: usize) -> (Hittables, Camera) {
     let mut world = HitList::default();
 
     let checker = Arc::new(Textures::CheckerTexture(CheckerTexture::new_from_color(
@@ -186,11 +202,25 @@ pub fn book2_motion_blur_scene() -> Hittables {
         material3,
     )));
 
-    BVHWrapper::new_wrapper(world)
-    //Hittables::HitList(world)
+    // Make cam mutable to change its behaviors
+    let mut cam = Camera::new(16.0 / 9.0, 400, threads);
+
+    cam.set_samples(500);
+    cam.set_max_depth(50);
+
+    cam.look_from(Point3::new(13.0, 2.0, 3.0));
+    cam.look_at(Point3::new(0.0, 0.0, 0.0));
+
+    cam.set_vfov(20.0);
+
+    cam.set_defocus_angle(0.6);
+    cam.set_focus_dist(10.0);
+
+    (BVHWrapper::new_wrapper(world), cam)
 }
 
-pub fn checkered_spheres() -> Hittables {
+/// Demo scene for textures
+pub fn checkered_spheres(threads: usize) -> (Hittables, Camera) {
     let mut world = HitList::default();
 
     let checker = Arc::new(Textures::CheckerTexture(CheckerTexture::new_from_color(
@@ -211,5 +241,89 @@ pub fn checkered_spheres() -> Hittables {
         Materials::Lambertian(Lambertian::new_from_texture(checker, 1.0)),
     )));
 
-    BVHWrapper::new_wrapper(world)
+    // Make cam mutable to change its behaviors
+    let mut cam = Camera::new(16.0 / 9.0, 400, threads);
+
+    cam.set_samples(500);
+    cam.set_max_depth(50);
+
+    cam.look_from(Point3::new(13.0, 2.0, 3.0));
+    cam.look_at(Point3::new(0.0, 0.0, 0.0));
+
+    cam.set_vfov(20.0);
+
+    cam.set_defocus_angle(0.6);
+    cam.set_focus_dist(10.0);
+
+    (BVHWrapper::new_wrapper(world), cam)
+}
+
+/// Demo scene for loading in .obj model files
+pub fn load_teapot(threads: usize) -> (Hittables, Camera) {
+    let mut world = HitList::default();
+
+    // add the teapot
+    world.add(Hittables::HitList(asset_loader::load_obj(
+        "teapot.obj",
+        0.5,
+        Point3::new(3.0, 0.0, 0.0),
+    )));
+
+    // add the ground
+    let checker = Arc::new(Textures::CheckerTexture(CheckerTexture::new_from_color(
+        0.32,
+        Color::new(0.2, 0.3, 0.1),
+        Color::new(0.9, 0.9, 0.9),
+    )));
+
+    let ground_material = Materials::Lambertian(Lambertian::new_from_texture(checker, 1.0));
+    world.add(Hittables::Sphere(Sphere::new_stationary(
+        Point3::new(0.0, -1000.0, 0.0),
+        1000.0,
+        ground_material,
+    )));
+
+    // Make cam mutable to change its behaviors
+    let mut cam = Camera::new(16.0 / 9.0, 400, threads);
+
+    cam.set_samples(500);
+    cam.set_max_depth(50);
+
+    cam.look_from(Point3::new(13.0, 2.0, 3.0));
+    cam.look_at(Point3::new(0.0, 0.0, 0.0));
+
+    cam.set_vfov(20.0);
+
+    cam.set_defocus_angle(0.6);
+    cam.set_focus_dist(10.0);
+
+    (BVHWrapper::new_wrapper(world), cam)
+}
+
+pub fn earth(threads: usize) -> (Hittables, Camera) {
+    let mut world = HitList::default();
+
+    let earth_texture = Textures::ImageTexture(ImageTexture::new("earthmap.jpg"));
+    let earth_surface =
+        Materials::Lambertian(Lambertian::new_from_texture(Arc::new(earth_texture), 1.0));
+    let globe = Hittables::Sphere(Sphere::new_stationary(
+        Point3::new(0.0, 0.0, 0.0),
+        2.0,
+        earth_surface,
+    ));
+
+    world.add(globe);
+
+    // Make cam mutable to change its behaviors
+    let mut cam = Camera::new(16.0 / 9.0, 400, threads);
+
+    cam.set_samples(500);
+    cam.set_max_depth(50);
+
+    cam.look_from(Point3::new(0.0, 0.0, 12.0));
+    cam.look_at(Point3::new(0.0, 0.0, 0.0));
+
+    cam.set_vfov(20.0);
+
+    (BVHWrapper::new_wrapper(world), cam)
 }

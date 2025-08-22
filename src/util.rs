@@ -211,6 +211,7 @@ impl Point3 {
         }
     }
 
+    /// Normalize a vector
     pub fn unit_vector(self) -> Point3 {
         let l = self.length();
         self / l

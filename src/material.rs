@@ -1,10 +1,9 @@
 use std::sync::Arc;
 
 use rand::Rng;
-use serde::{Deserialize, Serialize};
 
 use crate::{
-    environment::Ray,
+    camera::Ray,
     objects::HitRecord,
     texture::{SolidColor, Textures},
     util::{Color, Vec3},
@@ -12,7 +11,7 @@ use crate::{
 
 /// TODO: Add macros to autogenerate this stuff.
 /// Especially for custom user materials
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub enum Materials {
     Lambertian(Lambertian),
     Metal(Metal),
@@ -37,7 +36,7 @@ pub trait Material {
     fn scatter(&self, r_in: &Ray, rec: &HitRecord, attenuation: &mut Color) -> Option<Ray>;
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct Lambertian {
     tex: Arc<Textures>,
     scatter_prob: f64,
@@ -88,7 +87,7 @@ impl Material for Lambertian {
 
 /// A reflective material, bounces rays against the
 /// normal. Fuzz allows the metal to not perfectly reflect
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct Metal {
     albedo: Color,
     fuzz: f64,
@@ -124,7 +123,7 @@ impl Material for Metal {
 }
 
 /// A material representing water, or glass
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct Dielectric {
     refraction_index: f64,
 }

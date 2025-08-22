@@ -1,5 +1,8 @@
 use std::{
-    fs::OpenOptions, io::{BufWriter, Error, Write}, sync::{mpsc, Arc, Mutex, RwLock}, thread::{self, JoinHandle}
+    fs::OpenOptions,
+    io::{BufWriter, Error, Write},
+    sync::{Arc, Mutex, RwLock, mpsc},
+    thread::{self, JoinHandle},
 };
 
 use dashmap::DashMap;
@@ -259,6 +262,11 @@ impl Camera {
         self.focus_dist = fd;
 
         self.fix_viewport();
+    }
+
+    /// Changes the number of threads a camera will render with
+    pub fn set_threads(&mut self, threads: usize) {
+        self.thread_count = threads;
     }
 
     // Call whenever any of these vars change
@@ -559,7 +567,12 @@ fn start_thread(
                     let thread_loc_i = info.i;
                     let thread_loc_j = info.j;
 
-                    let color = cam.cast_ray(thread_loc_i, thread_loc_j, cam.max_depth, &world.read().unwrap());
+                    let color = cam.cast_ray(
+                        thread_loc_i,
+                        thread_loc_j,
+                        cam.max_depth,
+                        &world.read().unwrap(),
+                    );
 
                     results.insert((thread_loc_i, thread_loc_j), color);
                     if progress % 10 == 0 {
@@ -585,7 +598,7 @@ fn ray_color(r: Ray, depth: u32, world: &Hittables) -> Color {
     }
     // The interval starts at 0.001 to fix the 'shadow acne' behavior
     let hit = world.hit(&r, &Interval::new(0.001, f64::INFINITY));
-    
+
     if let Some(h) = hit {
         let mut attenuation = Color::black();
 

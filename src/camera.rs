@@ -1,4 +1,5 @@
 use std::{
+    f64::consts::PI,
     fs::OpenOptions,
     io::{BufWriter, Error, Write},
     sync::{Arc, Mutex, RwLock, mpsc},
@@ -12,6 +13,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     objects::Hittables,
+    scene::Skybox,
     util::{Color, Degrees, Interval, Point3, Radians, Vec3},
 };
 
@@ -370,7 +372,14 @@ impl Camera {
         self.look_from.clone() + (p.x() * self.defocus_disk_u()) + (p.y() * self.defocus_disk_v())
     }
 
-    fn cast_ray(&self, render_i: u32, render_j: u32, max_depth: u32, world: &Hittables) -> Color {
+    fn cast_ray(
+        &self,
+        render_i: u32,
+        render_j: u32,
+        max_depth: u32,
+        sb: &Skybox,
+        world: &Hittables,
+    ) -> Color {
         let cc = self.look_from.clone();
 
         // Store the colors from each sample
@@ -395,7 +404,7 @@ impl Camera {
             let ray_dir = ps - ray_orig.clone();
             let ray_time = rng.random();
             let ray_cast = Ray::new_at_time(ray_orig, ray_dir, ray_time);
-            sample_colors.push(ray_color(ray_cast, max_depth, world));
+            sample_colors.push(ray_color(ray_cast, max_depth, sb, world));
         }
 
         average_samples(sample_colors)
@@ -406,7 +415,7 @@ impl Camera {
     ///
     /// # Error
     /// Returns an error if the file cannot be opened.
-    pub fn render(&mut self, world: &Hittables, fname: &str) -> Result<(), Error> {
+    pub fn render(&self, skybox: &Skybox, world: &Hittables, fname: &str) -> Result<(), Error> {
         assert!(
             self.look_at != self.look_from,
             "look_at and look_from cannot be the same."
@@ -425,7 +434,7 @@ impl Camera {
         let mut bw = BufWriter::new(f);
 
         // Render
-        let (mut threads, mut sender) = self.thread_setup_helper(world);
+        let (mut threads, mut sender) = self.thread_setup_helper(skybox, world);
 
         writeln!(bw, "P3\n{iw} {ih}\n255")?;
 
@@ -462,10 +471,12 @@ impl Camera {
 
     fn thread_setup_helper(
         &self,
+        skybox: &Skybox,
         world: &Hittables,
     ) -> (Vec<JoinHandle<()>>, Option<mpsc::Sender<ThreadInfo>>) {
         // rendering environment
         let arc_world = Arc::new(RwLock::new(world.clone()));
+        let arc_skybox = Arc::new(skybox.clone());
         let arc_cam = Arc::new(self.clone());
 
         // Channels
@@ -489,6 +500,7 @@ impl Camera {
                 Arc::clone(&receiver),
                 Arc::clone(&self.results),
                 Arc::clone(&arc_cam),
+                Arc::clone(&arc_skybox),
                 Arc::clone(&arc_world),
             ));
         }
@@ -547,6 +559,7 @@ fn start_thread(
     receiver: Arc<Mutex<mpsc::Receiver<ThreadInfo>>>,
     results: Arc<DashMap<(u32, u32), Color>>,
     cam: Arc<Camera>,
+    skybox: Arc<Skybox>,
     world: Arc<RwLock<Hittables>>,
 ) -> JoinHandle<()> {
     //let pb = mp.add(ProgressBar::new(my_pixels));
@@ -571,6 +584,7 @@ fn start_thread(
                         thread_loc_i,
                         thread_loc_j,
                         cam.max_depth,
+                        &skybox,
                         &world.read().unwrap(),
                     );
 
@@ -590,7 +604,7 @@ fn start_thread(
     })
 }
 
-fn ray_color(r: Ray, depth: u32, world: &Hittables) -> Color {
+fn ray_color(r: Ray, depth: u32, sb: &Skybox, world: &Hittables) -> Color {
     // If we have reached the max bounces we no longer
     // gather color contribution
     if depth == 0 {
@@ -605,16 +619,31 @@ fn ray_color(r: Ray, depth: u32, world: &Hittables) -> Color {
         let scatter = h.material().scatter(&r, &h, &mut attenuation);
 
         if let Some(s) = scatter {
-            return attenuation * ray_color(s, depth - 1, world);
+            return attenuation * ray_color(s, depth - 1, sb, world);
         }
 
         return Color::black();
     }
 
-    let unit_direction = r.direction().clone().unit_vector();
-    let a = 0.5 * (unit_direction.y() + 1.0);
+    match sb {
+        Skybox::Spherical(sky) => {
+            let unit_direction = r.direction().clone().unit_vector();
+            let theta = unit_direction.x().atan2(unit_direction.z());
+            let phi = unit_direction.y().asin();
 
-    (1.0 - a) * Color::white() + a * Color::new(0.5, 0.7, 1.0)
+            let u = (theta / (2.0 * PI)) + 0.5;
+            let v = (phi / PI) + 0.5;
+
+            // Clamp then scale with the skyboxes size:
+            sky.get_color(u, v)
+        }
+        Skybox::Default => {
+            let unit_direction = r.direction().clone().unit_vector();
+            let a = 0.5 * (unit_direction.y() + 1.0);
+
+            (1.0 - a) * Color::white() + a * Color::new(0.5, 0.7, 1.0)
+        }
+    }
 }
 
 fn average_samples(sample_colors: Vec<Color>) -> Color {

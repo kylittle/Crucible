@@ -5,7 +5,7 @@ use std::{
 };
 
 use dashmap::DashMap;
-use image::{ImageFormat, Pixel};
+use image::ImageFormat;
 
 use crate::{
     material::{Lambertian, Materials},
@@ -206,8 +206,8 @@ impl RTWImage {
         let format = ImageFormat::from_path(&image_filename).expect("Unsupported filetype");
         let reader = BufReader::new(File::open(image_filename).unwrap());
 
-        let mut image = image::load(reader, format).expect("Cannot read image");
-        let image = image.as_mut_rgb8().unwrap();
+        let image = image::load(reader, format).expect("Cannot read image");
+        let image = image.to_rgb8();
 
         // Loop over the image and populate the dashmap
         let image_height = image.height();
@@ -215,25 +215,13 @@ impl RTWImage {
 
         let colors = DashMap::with_capacity((image_height * image_width) as usize);
 
-        dbg!(image_width);
-        dbg!(image_height);
-
         for h in 0..image_height {
             for w in 0..image_width {
                 let pixel = image.get_pixel(w, h);
 
-                let rgb = pixel.to_rgb();
-
-                if rgb.0 == [46, 73, 2] {
-                    eprintln!("Landho");
-                    eprint!("r {}", rgb.0[0] as f64 / 255.0);
-                    eprint!("g {}", rgb.0[1] as f64 / 255.0);
-                    eprintln!("b {}", rgb.0[2] as f64 / 255.0);
-                    eprintln!("{w} {h}");
-                }
-                let r = rgb.0[0] as f64 / 255.0;
-                let g = rgb.0[1] as f64 / 255.0;
-                let b = rgb.0[2] as f64 / 255.0;
+                let r = pixel.0[0] as f64 / 255.0;
+                let g = pixel.0[1] as f64 / 255.0;
+                let b = pixel.0[2] as f64 / 255.0;
 
                 colors.insert((w as usize, h as usize), Color::new(r, g, b));
             }

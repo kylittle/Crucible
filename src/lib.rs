@@ -1,7 +1,9 @@
-pub mod asset_loader;
+mod asset_loader;
+mod camera;
+mod material;
+mod objects;
+mod texture;
+
 pub mod demo_scenes;
-pub mod camera;
-pub mod material;
-pub mod objects;
-pub mod texture;
+pub mod scene;
 pub mod util;

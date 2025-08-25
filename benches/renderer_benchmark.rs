@@ -10,6 +10,7 @@ pub fn rendering_benchmark(c: &mut Criterion) {
     group.sample_size(10);
 
     let mut scene = demo_scenes::book1_end_scene(1);
+    scene.scene_cam.set_samples(100);
 
     // 1
     group.bench_function("render one thread", |b| {

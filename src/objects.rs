@@ -136,8 +136,13 @@ pub trait Hittable {
 /// The first object struct in the renderer. A sphere is
 /// relatively simple and implements Hittable by solving the
 /// equation x^2 + y^2 + z^2 = r^2
+///
+/// WARNING: Do not mess with the id field if this is in a
+/// scene.
 #[derive(Debug, Clone)]
 pub struct Sphere {
+    pub id: usize,
+    pub hide: bool,
     center: Ray,
     radius: f64,
     mat: Materials,
@@ -152,6 +157,8 @@ impl Sphere {
         let bbox = Aabb::new_from_points(center.clone() - rvec.clone(), center.clone() + rvec);
 
         Sphere {
+            id: 0,
+            hide: false,
             center: Ray::new(center, Point3::origin()),
             radius,
             mat,
@@ -163,6 +170,8 @@ impl Sphere {
         assert!(radius >= 0.0, "Cannot make a sphere with negative radius");
 
         let mut ms = Sphere {
+            id: 0,
+            hide: false,
             center: Ray::new(center1.clone(), center2 - center1),
             radius,
             mat,
@@ -195,6 +204,10 @@ impl Sphere {
 
 impl Hittable for Sphere {
     fn hit(&self, r: &Ray, ray_t: &Interval) -> Option<HitRecord> {
+        if self.hide {
+            return None;
+        }
+
         let current_center = self.center.at(r.time());
         let oc = current_center.clone() - r.origin().clone(); // (C - P) part of the circle eqn
 
@@ -262,6 +275,10 @@ impl HitList {
         self.objs.push(obj.clone());
         self.bbox = Aabb::new_from_boxes(&self.bbox, obj.bounding_box());
     }
+
+    pub fn get_objs(&self) -> &Vec<Hittables> {
+        &self.objs
+    }
 }
 
 impl Default for HitList {
@@ -302,7 +319,22 @@ pub struct BVHWrapper {
 impl BVHWrapper {
     /// Builds a BVHWrapper, simply pass a list and there should be a speedup
     pub fn new_wrapper(list: HitList) -> Hittables {
-        BVHWrapper::new_from_vec(list.objs.clone(), 0, list.objs.len())
+        let visible_objects: Vec<Hittables> = list
+            .objs
+            .iter()
+            .filter(|o| match o {
+                Hittables::BVHWrapper(_) => true,
+                Hittables::HitList(_) => true,
+                Hittables::Sphere(s) => !s.hide,
+                Hittables::Triangle(t) => !t.hide,
+            })
+            .cloned()
+            .collect();
+        let end = visible_objects.len();
+        if visible_objects.is_empty() {
+            return Hittables::HitList(HitList::default());
+        }
+        BVHWrapper::new_from_vec(visible_objects, 0, end)
     }
 
     pub fn new_from_vec(mut objects: Vec<Hittables>, start: usize, end: usize) -> Hittables {
@@ -365,18 +397,6 @@ impl BVHWrapper {
             Ordering::Equal
         }
     }
-
-    // fn box_x_compare(a: Hittables, b: Hittables) -> Ordering {
-    //     BVHWrapper::box_compare(a, b, Axis::X)
-    // }
-
-    // fn box_y_compare(a: Hittables, b: Hittables) -> Ordering {
-    //     BVHWrapper::box_compare(a, b, Axis::Y)
-    // }
-
-    // fn box_z_compare(a: Hittables, b: Hittables) -> Ordering {
-    //     BVHWrapper::box_compare(a, b, Axis::Z)
-    // }
 }
 
 impl Hittable for BVHWrapper {
@@ -412,8 +432,13 @@ impl Hittable for BVHWrapper {
 
 /// Fundamental building block for mesh loading.
 /// TODO: We are ignoring textures for now to get shapes working nicely
+///
+/// WARNING: Do not mess with the ID field if this is in a scene
+/// TODO: make this warning no longer relevant by design
 #[derive(Debug, Clone)]
 pub struct Triangle {
+    pub id: usize,
+    pub hide: bool,
     a: Point3,
     b: Point3,
     c: Point3,
@@ -432,7 +457,15 @@ impl Triangle {
 
         let bbox = Aabb::new_from_intervals(x_int, y_int, z_int);
 
-        Triangle { a, b, c, mat, bbox }
+        Triangle {
+            id: 0,
+            hide: false,
+            a,
+            b,
+            c,
+            mat,
+            bbox,
+        }
     }
 
     fn max_points(a: &Point3, b: &Point3, c: &Point3) -> (f64, f64, f64) {
@@ -455,6 +488,10 @@ impl Triangle {
 impl Hittable for Triangle {
     /// Based on the Moller-Trumbore algorithm
     fn hit(&self, r: &Ray, ray_t: &Interval) -> Option<HitRecord> {
+        if self.hide {
+            return None;
+        }
+
         let e1 = self.b.clone() - self.a.clone();
         let e2 = self.c.clone() - self.a.clone();
 

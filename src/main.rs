@@ -22,12 +22,13 @@ fn main() {
 
     let threads = args.threads.unwrap_or(std::thread::available_parallelism().expect("Cannot get the thread count of your system. Specify one when running this program.").get());
 
-    let (world, mut cam) = match args.world {
+    let scene = match args.world {
         1 => demo_scenes::book1_end_scene(threads),
         2 => demo_scenes::book2_motion_blur_scene(threads),
         3 => demo_scenes::checkered_spheres(threads),
         4 => demo_scenes::load_teapot(threads),
         5 => demo_scenes::earth(threads),
+        6 => demo_scenes::garden_skybox(threads),
         _ => {
             eprintln!("Invalid world number. Selecting default scene");
             demo_scenes::book1_end_scene(threads)
@@ -36,12 +37,5 @@ fn main() {
 
     eprintln!("Creating camera with {threads} threads.");
 
-    match cam.render(&world, args.file.as_str()) {
-        Ok(()) => {
-            eprintln!("Successful render! Image stored at: {}", args.file.as_str());
-        }
-        Err(e) => {
-            eprintln!("Render failed. {e}");
-        }
-    }
+    scene.render_scene(args.file.as_str());
 }

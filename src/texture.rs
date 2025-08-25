@@ -118,10 +118,6 @@ impl Texture for ImageTexture {
         let i = (u * self.image.width() as f64) as usize;
         let j = (v * self.image.height() as f64) as usize;
 
-        if i == 562 && j == 241 {
-            eprintln!("Making land");
-        }
-
         self.image.pixel_data(i, j)
     }
 }

@@ -5,20 +5,32 @@ will be a major departure from the book:
 https://raytracing.github.io/books/RayTracingInOneWeekend.html
 
 Here is a list of current features:
-    - Path-tracing rendering
-    - Some material and texture support for objects
-    - Multithreading on the CPU
-    - Minimal Obj file support
-    - Spherical skybox mapping
-    - Aliased scene elements for future editing support
+
+&emsp;- Path-tracing rendering
+
+&emsp;- Some material and texture support for objects
+
+&emsp;- Multithreading on the CPU
+
+&emsp;- Minimal Obj file support
+
+&emsp;- Spherical skybox mapping
+
+&emsp;- Aliased scene elements for future editing support
+
 Here are some planned features:
-    - Offline animation rendering
-    - Physics driven manipulation of scene elements
-    - GPU edition
-    - Programming language interface with static checking
-    - A pre-vis app to edit scene programs visually before
-        render
-    - And probably a lot more!
+
+&emsp;- Offline animation rendering
+
+&emsp;- Physics driven manipulation of scene elements
+
+&emsp;- GPU edition
+
+&emsp;- Programming language interface with static checking
+
+&emsp;- A pre-vis app to edit scene programs visually before render
+
+&emsp;- And probably a lot more!
 
 TODO: Write a better how to use section here!
 
@@ -33,18 +45,26 @@ a few directory levels for a directory called `assets`.
 
 The program also takes a few command line arguments:
 
--f or --file    Specifies the file to render the image to
--t or --threads Specifies the number of threads to use      
+-f or --file  &emsp;&emsp;&emsp;Specifies the file to render the image to
+
+-t or --threads &emsp;Specifies the number of threads to use 
                 (defaults to the systems number of threads)
--w or --word    Selects a scene to render from the demo 
-                scenes. These are as follows:
+                
+-w or --world&emsp;&emsp;Selects a scene to render from the demo 
+scenes. These are as follows:
+                
                     1. A scene from the end of the book
+                    
                     2. The same as above but with motion 
                         blur
+                        
                     3. A scene with two checkered spheres
+                    
                     4. A scene with the Utah teapot
+                    
                     5. A scene with a sphere wrapped with an
                         earth texture
+                        
                     6. A scene featuring a skybox
 
 Try rendering these scenes or make your own! While this

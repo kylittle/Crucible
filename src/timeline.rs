@@ -1,13 +1,14 @@
 use std::{fmt::Debug, sync::Arc};
 
-use nalgebra::{Matrix4, Point, Scalar, Vector4};
+use nalgebra::{Matrix4, Vector4};
 
 use crate::{
-    timeline::transform_matrix::Matrix,
+    timeline::helper_functions::{TransformResult, TransformType},
     utils::{Interval, Point3},
 };
 
-mod transform_matrix;
+mod helper_functions;
+mod matrix_builder;
 
 /// MatrixInfo describes a transform in time
 /// the valid time interval represents the keyframes
@@ -20,7 +21,7 @@ struct MatrixInfo {
 }
 
 impl Debug for MatrixInfo {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, _f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         Ok(())
     }
 }
@@ -53,35 +54,6 @@ impl MatrixInfo {
     }
 }
 
-/// This holds info about a completed transformation.
-/// This allows us to grab this info and build interpolation
-/// to a next value. TODO: Think about rotations
-#[derive(Debug, Clone)]
-enum TransformResult {
-    ScaleX(f64),
-    ScaleY(f64),
-    ScaleZ(f64),
-    ScaleR(f64),
-    Rotation(Point3),
-    TranslateX(f64),
-    TranslateY(f64),
-    TranslateZ(f64),
-}
-
-/// Basically the same as a transform result but without the
-/// data
-#[derive(Debug, PartialEq)]
-enum TransformType {
-    ScaleX,
-    ScaleY,
-    ScaleZ,
-    ScaleR,
-    Rotate,
-    TranslateX,
-    TranslateY,
-    TranslateZ,
-}
-
 /// A transform holds the change to be applied to an
 /// object, these will not be constructed directly rather
 /// through the interface of the transform timeline.
@@ -89,7 +61,7 @@ enum TransformType {
 /// links in a linked list that have to update the next transform
 /// of the same type what they ended at.
 #[derive(Debug)]
-struct Transform {
+pub struct Transform {
     transform: Matrix4<MatrixInfo>,
     valid_time: Interval,
     transform_type: TransformType,
@@ -124,11 +96,15 @@ impl Transform {
 }
 
 /// The interpolation behavior of the keyframe. Use NERP for no interpolation.
+#[derive(Debug, Clone)]
 pub enum InterpolationType {
     NERP,
     LERP,
 }
 
+/// TODO: I don't think any object needs to store its location after this (with a few exceptions
+/// such as triangle offset vertices CHECK THIS) but some data still needs to be held like info for
+/// scaling
 #[derive(Debug)]
 pub struct TransformTimeline {
     scale: Vec<Transform>,
@@ -139,193 +115,55 @@ pub struct TransformTimeline {
 impl TransformTimeline {
     /// The new function needs to build a transform timeline and insert the frame 0 keyframes for
     /// object position:
-    pub fn new() -> TransformTimeline {
+    ///
+    /// Scale is a multiplier not the initial size. If for some reason you want to make an object with a
+    /// radius of 3 and initialize it with a scale factor of 2x make sure to do each in the correct place
+    pub fn new(start_pos: Point3, start_rot: Point3, start_scale: f64) -> TransformTimeline {
         let mut scale = Vec::new();
-        let rotate = Vec::new();
-        let translate = Vec::new();
+        let mut rotate = Vec::new();
+        let mut translate = Vec::new();
 
-        let unit_info = MatrixInfo::new(|_t: f64| -> f64 { 1.0 });
-        let zero_info = MatrixInfo::new(|_t: f64| -> f64 { 0.0 });
-
-        // Starting matrix does not change anything
-        let sm = Matrix4::new(
-            unit_info.clone(),
-            zero_info.clone(),
-            zero_info.clone(),
-            zero_info.clone(),
-            zero_info.clone(),
-            unit_info.clone(),
-            zero_info.clone(),
-            zero_info.clone(),
-            zero_info.clone(),
-            zero_info.clone(),
-            unit_info.clone(),
-            zero_info.clone(),
-            zero_info.clone(),
-            zero_info.clone(),
-            zero_info.clone(),
-            unit_info.clone(),
-        );
+        let id = matrix_builder::build_identity();
+        let start_mat = matrix_builder::build_pos(start_pos.clone());
 
         // We need init functions to build all initial transforms
+
+        // TODO: Evaluate if using a negative valid time is bad, this is so the initial states
+        // wont interfere with adding keyframes
+
+        // Since scale behaves differently than the other transforms and doesn't remember its past
+        // since that makes it more useable it will start with the identity scale.
         scale.push(Transform {
-            transform: sm,
-            valid_time: Interval::new(0.0, 0.0),
-            transform_type: TransformType::ScaleR,
-            start: TransformResult::ScaleR(1.0),
-            end: TransformResult::ScaleR(1.0),
+            transform: id.clone(),
+            valid_time: Interval::new(-0.1, -0.1),
+            transform_type: TransformType::Omni,
+            start: TransformResult::InitScale(start_scale),
+            end: TransformResult::InitScale(start_scale),
+        });
+
+        // Add the identity as an omni type for transform, change this for initial object rotation
+        // TODO: build an initial rotation matrix so we can apply all the rotations up to a time
+        rotate.push(Transform {
+            transform: id.clone(),
+            valid_time: Interval::new(-0.1, -0.1),
+            transform_type: TransformType::Omni,
+            start: TransformResult::InitRotate(start_rot.clone()),
+            end: TransformResult::InitRotate(start_rot.clone()),
+        });
+
+        // TODO: Build an initial translation matrix so we can apply all the translations up to a time
+        translate.push(Transform {
+            transform: start_mat,
+            valid_time: Interval::new(-0.1, -0.1),
+            transform_type: TransformType::Omni,
+            start: TransformResult::InitTranslate(start_pos.clone()),
+            end: TransformResult::InitTranslate(start_pos.clone()),
         });
 
         TransformTimeline {
             scale,
             rotate,
             translate,
-        }
-    }
-
-    /// Returns the previous matching transform TODO: Refactor
-    fn most_recent_matching_transform(
-        &mut self,
-        t: f64,
-        ttype: TransformType,
-    ) -> Option<&mut Transform> {
-        match ttype {
-            TransformType::ScaleX => {
-                for transform in self.scale.iter_mut().rev().filter(|tform| {
-                    tform.valid_time.is_less(t) && tform.transform_type == TransformType::ScaleX
-                }) {
-                    return Some(transform);
-                }
-                None
-            }
-            TransformType::ScaleY => {
-                for transform in self.scale.iter_mut().rev().filter(|tform| {
-                    tform.valid_time.is_less(t) && tform.transform_type == TransformType::ScaleY
-                }) {
-                    return Some(transform);
-                }
-                None
-            }
-            TransformType::ScaleZ => {
-                for transform in self.scale.iter_mut().rev().filter(|tform| {
-                    tform.valid_time.is_less(t) && tform.transform_type == TransformType::ScaleZ
-                }) {
-                    return Some(transform);
-                }
-                None
-            }
-            TransformType::ScaleR => {
-                for transform in self.scale.iter_mut().rev().filter(|tform| {
-                    tform.valid_time.is_less(t) && tform.transform_type == TransformType::ScaleR
-                }) {
-                    return Some(transform);
-                }
-                None
-            }
-            TransformType::Rotate => {
-                for transform in self.rotate.iter_mut().rev().filter(|tform| {
-                    tform.valid_time.is_less(t) && tform.transform_type == TransformType::Rotate
-                }) {
-                    return Some(transform);
-                }
-                None
-            }
-            TransformType::TranslateX => {
-                for transform in self.translate.iter_mut().rev().filter(|tform| {
-                    tform.valid_time.is_less(t) && tform.transform_type == TransformType::TranslateX
-                }) {
-                    return Some(transform);
-                }
-                None
-            }
-            TransformType::TranslateY => {
-                for transform in self.translate.iter_mut().rev().filter(|tform| {
-                    tform.valid_time.is_less(t) && tform.transform_type == TransformType::TranslateY
-                }) {
-                    return Some(transform);
-                }
-                None
-            }
-            TransformType::TranslateZ => {
-                for transform in self.translate.iter_mut().rev().filter(|tform| {
-                    tform.valid_time.is_less(t) && tform.transform_type == TransformType::TranslateZ
-                }) {
-                    return Some(transform);
-                }
-                None
-            }
-        }
-    }
-
-    fn next_matching_transform(&mut self, t: f64, ttype: TransformType) -> Option<&mut Transform> {
-        match ttype {
-            TransformType::ScaleX => {
-                for transform in self.scale.iter_mut().filter(|tform| {
-                    tform.valid_time.is_greater(t) && tform.transform_type == TransformType::ScaleX
-                }) {
-                    return Some(transform);
-                }
-                None
-            }
-            TransformType::ScaleY => {
-                for transform in self.scale.iter_mut().filter(|tform| {
-                    tform.valid_time.is_greater(t) && tform.transform_type == TransformType::ScaleY
-                }) {
-                    return Some(transform);
-                }
-                None
-            }
-            TransformType::ScaleZ => {
-                for transform in self.scale.iter_mut().filter(|tform| {
-                    tform.valid_time.is_greater(t) && tform.transform_type == TransformType::ScaleZ
-                }) {
-                    return Some(transform);
-                }
-                None
-            }
-            TransformType::ScaleR => {
-                for transform in self.scale.iter_mut().filter(|tform| {
-                    tform.valid_time.is_greater(t) && tform.transform_type == TransformType::ScaleR
-                }) {
-                    return Some(transform);
-                }
-                None
-            }
-            TransformType::Rotate => {
-                for transform in self.rotate.iter_mut().filter(|tform| {
-                    tform.valid_time.is_greater(t) && tform.transform_type == TransformType::Rotate
-                }) {
-                    return Some(transform);
-                }
-                None
-            }
-            TransformType::TranslateX => {
-                for transform in self.translate.iter_mut().filter(|tform| {
-                    tform.valid_time.is_greater(t)
-                        && tform.transform_type == TransformType::TranslateX
-                }) {
-                    return Some(transform);
-                }
-                None
-            }
-            TransformType::TranslateY => {
-                for transform in self.translate.iter_mut().filter(|tform| {
-                    tform.valid_time.is_greater(t)
-                        && tform.transform_type == TransformType::TranslateY
-                }) {
-                    return Some(transform);
-                }
-                None
-            }
-            TransformType::TranslateZ => {
-                for transform in self.translate.iter_mut().filter(|tform| {
-                    tform.valid_time.is_greater(t)
-                        && tform.transform_type == TransformType::TranslateZ
-                }) {
-                    return Some(transform);
-                }
-                None
-            }
         }
     }
 
@@ -338,8 +176,8 @@ impl TransformTimeline {
     pub fn combine_and_compute(&self, t: f64, inputs: Vector4<f64>) -> Vector4<f64> {
         // Check that there are no overlap transforms TODO: Implement this
         assert!(true);
-        // Get the valid matrices based on what time it is
 
+        // Get the valid matrices based on what time it is TODO: This probably shouldnt be last
         let scale_test = self
             .scale
             .iter()
@@ -347,8 +185,22 @@ impl TransformTimeline {
             .last()
             .unwrap();
 
-        let time_matrix = scale_test.get_matrix_at_time(t);
-        let outputs = time_matrix * inputs;
+        let translate_transforms = self
+            .translate
+            .iter()
+            .filter(|tf| tf.valid_time.is_less(t) || tf.valid_time.contains(t))
+            .map(|tf| tf.get_matrix_at_time(t));
+
+        // Loop over and build the translate
+        let mut translate_matrix = matrix_builder::build_identity_f64();
+        for translate in translate_transforms {
+            translate_matrix = translate * translate_matrix;
+        }
+
+        let scale_matrix = scale_test.get_matrix_at_time(t);
+        // NOTE: Put ScaleR type scaling before translating, reevaluate when it comes to triangles
+        let combined_matrix = scale_matrix * translate_matrix; // TODO: add rotations
+        let outputs = combined_matrix * inputs;
 
         Vector4::from_row_slice(outputs.as_slice())
         // Then we apply the time to the dynamic matrices
@@ -369,7 +221,7 @@ impl TransformTimeline {
     /// is NERP this will happen instantaneously upon reaching the time keyframe.
     pub fn scale_sphere(&mut self, r: f64, keyframe: f64, interp: InterpolationType) {
         // Gets the previous transform result
-        let prev = self.most_recent_matching_transform(keyframe, TransformType::ScaleR).expect("Missing transform data! Tried to scale at {keyframe} but could not find a previous scale reference!");
+        let prev = self.most_recent_matching_transform(keyframe, TransformType::ScaleR).expect("Missing transform data! Tried to scale radius but could not find a previous scale reference!");
         let prev_end = prev.end.clone();
         let prev_time = prev.valid_time.max();
 
@@ -389,9 +241,15 @@ impl TransformTimeline {
                 interval = Interval::new(prev_time, keyframe);
 
                 if let TransformResult::ScaleR(start_scale) = prev_end {
-                    scale_info = MatrixInfo::new(move |t| start_scale + (r - start_scale) * t)
+                    scale_info = MatrixInfo::new(move |t| start_scale + (r - start_scale) * t);
                 } else {
-                    panic!("Cannot find the previous scale data for radius scale at {keyframe}")
+                    if let TransformResult::InitScale(start_scale) = prev_end {
+                        scale_info = MatrixInfo::new(move |t| start_scale + (r - start_scale) * t);
+                    } else {
+                        panic!(
+                            "Cannot find the previous scale data for radius scale at keyframe: {keyframe}"
+                        )
+                    }
                 };
             }
             InterpolationType::NERP => {
@@ -436,6 +294,251 @@ impl TransformTimeline {
         self.scale
             .sort_by(|a, b| a.valid_time.compare_start(&b.valid_time));
     }
+
+    /// Translates an object along the x axis. Use this for decoupled axis movement. If you want to move an object along all three axis at the same time
+    /// try `translate_point`
+    pub fn translate_x(&mut self, x: f64, keyframe: f64, interp: InterpolationType) {
+        // Gets the previous transform result
+        let prev = self.most_recent_matching_transform(keyframe, TransformType::TranslateX).expect("Missing transform data! Tried to translate x but could not find a previous position reference!");
+        let prev_end = prev.end.clone();
+        let prev_time = prev.valid_time.max();
+
+        // Gets the next transform
+        let next = self.next_matching_transform(keyframe, TransformType::TranslateX);
+        if next.is_some() {
+            next.unwrap().start = TransformResult::TranslateX(x);
+        }
+
+        // TODO: check for conflicts
+        let interval;
+        let translate_info;
+        match interp {
+            InterpolationType::LERP => {
+                // Note this starts immediately after the previous if you want the interpolation to be delayed
+                // add another NERP keyframe that has the same scale to delay the change
+                interval = Interval::new(prev_time, keyframe);
+
+                if let TransformResult::TranslateX(start_x) = prev_end.clone() {
+                    translate_info = MatrixInfo::new(move |t| start_x + (x - start_x) * t);
+                } else {
+                    if let TransformResult::InitTranslate(start_p) = prev_end.clone() {
+                        let start_x = start_p.x();
+                        translate_info = MatrixInfo::new(move |t| start_x + (x - start_x) * t);
+                    } else {
+                        panic!(
+                            "Cannot find the previous translate data for x at keyframe: {keyframe}"
+                        )
+                    }
+                };
+            }
+            InterpolationType::NERP => {
+                interval = Interval::new(keyframe, keyframe);
+                translate_info = MatrixInfo::new(move |_t| -> f64 { x });
+            }
+        }
+        let unit_info = MatrixInfo::new(|_t: f64| -> f64 { 1.0 });
+        let zero_info = MatrixInfo::new(|_t: f64| -> f64 { 0.0 });
+
+        // Make a non-interpolated transform matrix
+        let tm = Matrix4::new(
+            unit_info.clone(),
+            zero_info.clone(),
+            zero_info.clone(),
+            translate_info.clone(),
+            zero_info.clone(),
+            unit_info.clone(),
+            zero_info.clone(),
+            zero_info.clone(),
+            zero_info.clone(),
+            zero_info.clone(),
+            unit_info.clone(),
+            zero_info.clone(),
+            zero_info.clone(),
+            zero_info.clone(),
+            zero_info.clone(),
+            unit_info.clone(),
+        );
+
+        // Make sure to update where next starts from
+        let translate = Transform::new(
+            tm,
+            interval,
+            TransformType::TranslateX,
+            prev_end,
+            TransformResult::TranslateX(x),
+        );
+
+        self.translate.push(translate);
+        // Then sort by start time
+        self.translate
+            .sort_by(|a, b| a.valid_time.compare_start(&b.valid_time));
+    }
+
+    /// Translates an object along the y axis. Use this for decoupled axis movement. If you want to move an object along all three axis at the same time
+    /// try `translate_point`
+    pub fn translate_y(&mut self, y: f64, keyframe: f64, interp: InterpolationType) {
+        // Gets the previous transform result
+        let prev = self.most_recent_matching_transform(keyframe, TransformType::TranslateY).expect("Missing transform data! Tried to translate y but could not find a previous position reference!");
+        let prev_end = prev.end.clone();
+        let prev_time = prev.valid_time.max();
+
+        // Gets the next transform
+        let next = self.next_matching_transform(keyframe, TransformType::TranslateY);
+        if next.is_some() {
+            next.unwrap().start = TransformResult::TranslateY(y);
+        }
+
+        // TODO: check for conflicts
+        let interval;
+        let translate_info;
+        match interp {
+            InterpolationType::LERP => {
+                // Note this starts immediately after the previous if you want the interpolation to be delayed
+                // add another NERP keyframe that has the same scale to delay the change
+                interval = Interval::new(prev_time, keyframe);
+
+                if let TransformResult::TranslateY(start_y) = prev_end.clone() {
+                    translate_info = MatrixInfo::new(move |t| start_y + (y - start_y) * t);
+                } else {
+                    if let TransformResult::InitTranslate(start_p) = prev_end.clone() {
+                        let start_y = start_p.y();
+                        translate_info = MatrixInfo::new(move |t| start_y + (y - start_y) * t);
+                    } else {
+                        panic!(
+                            "Cannot find the previous translate data for x at keyframe: {keyframe}"
+                        )
+                    }
+                };
+            }
+            InterpolationType::NERP => {
+                interval = Interval::new(keyframe, keyframe);
+                translate_info = MatrixInfo::new(move |_t| -> f64 { y });
+            }
+        }
+        let unit_info = MatrixInfo::new(|_t: f64| -> f64 { 1.0 });
+        let zero_info = MatrixInfo::new(|_t: f64| -> f64 { 0.0 });
+
+        // Make a non-interpolated transform matrix
+        let tm = Matrix4::new(
+            unit_info.clone(),
+            zero_info.clone(),
+            zero_info.clone(),
+            zero_info.clone(),
+            zero_info.clone(),
+            unit_info.clone(),
+            zero_info.clone(),
+            translate_info.clone(),
+            zero_info.clone(),
+            zero_info.clone(),
+            unit_info.clone(),
+            zero_info.clone(),
+            zero_info.clone(),
+            zero_info.clone(),
+            zero_info.clone(),
+            unit_info.clone(),
+        );
+
+        // Make sure to update where next starts from
+        let translate = Transform::new(
+            tm,
+            interval,
+            TransformType::TranslateY,
+            prev_end,
+            TransformResult::TranslateY(y),
+        );
+
+        self.translate.push(translate);
+        // Then sort by start time
+        self.translate
+            .sort_by(|a, b| a.valid_time.compare_start(&b.valid_time));
+    }
+
+    /// Translates an object along the y axis. Use this for decoupled axis movement. If you want to move an object along all three axis at the same time
+    /// try `translate_point`
+    pub fn translate_z(&mut self, z: f64, keyframe: f64, interp: InterpolationType) {
+        // Gets the previous transform result
+        let prev = self.most_recent_matching_transform(keyframe, TransformType::TranslateZ).expect("Missing transform data! Tried to translate z but could not find a previous position reference!");
+        let prev_end = prev.end.clone();
+        let prev_time = prev.valid_time.max();
+
+        // Gets the next transform
+        let next = self.next_matching_transform(keyframe, TransformType::TranslateZ);
+        if next.is_some() {
+            next.unwrap().start = TransformResult::TranslateZ(z);
+        }
+
+        // TODO: check for conflicts
+        let interval;
+        let translate_info;
+        match interp {
+            InterpolationType::LERP => {
+                // Note this starts immediately after the previous if you want the interpolation to be delayed
+                // add another NERP keyframe that has the same scale to delay the change
+                interval = Interval::new(prev_time, keyframe);
+
+                if let TransformResult::TranslateZ(start_z) = prev_end.clone() {
+                    translate_info = MatrixInfo::new(move |t| start_z + (z - start_z) * t);
+                } else {
+                    if let TransformResult::InitTranslate(start_p) = prev_end.clone() {
+                        let start_z = start_p.z();
+                        translate_info = MatrixInfo::new(move |t| start_z + (z - start_z) * t);
+                    } else {
+                        panic!(
+                            "Cannot find the previous translate data for z at keyframe: {keyframe}"
+                        )
+                    }
+                };
+            }
+            InterpolationType::NERP => {
+                interval = Interval::new(keyframe, keyframe);
+                translate_info = MatrixInfo::new(move |_t| -> f64 { z });
+            }
+        }
+        let unit_info = MatrixInfo::new(|_t: f64| -> f64 { 1.0 });
+        let zero_info = MatrixInfo::new(|_t: f64| -> f64 { 0.0 });
+
+        // Make a non-interpolated transform matrix
+        let tm = Matrix4::new(
+            unit_info.clone(),
+            zero_info.clone(),
+            zero_info.clone(),
+            zero_info.clone(),
+            zero_info.clone(),
+            unit_info.clone(),
+            zero_info.clone(),
+            zero_info.clone(),
+            zero_info.clone(),
+            zero_info.clone(),
+            unit_info.clone(),
+            translate_info.clone(),
+            zero_info.clone(),
+            zero_info.clone(),
+            zero_info.clone(),
+            unit_info.clone(),
+        );
+
+        // Make sure to update where next starts from
+        let translate = Transform::new(
+            tm,
+            interval,
+            TransformType::TranslateZ,
+            prev_end,
+            TransformResult::TranslateZ(z),
+        );
+
+        self.translate.push(translate);
+        // Then sort by start time
+        self.translate
+            .sort_by(|a, b| a.valid_time.compare_start(&b.valid_time));
+    }
+
+    /// Here is a function to translate all three axis to a point, note that you have no control over timing or individual interpolation type
+    /// if you want any of those use the decoupled translations
+    pub fn translate_point(&mut self, p: Point3, keyframe: f64, interp: InterpolationType) {
+        self.translate_x(p.x(), keyframe, interp.clone());
+        self.translate_y(p.y(), keyframe, interp.clone());
+        self.translate_z(p.z(), keyframe, interp);
+    }
 }
 
 #[cfg(test)]
@@ -466,7 +569,8 @@ mod tests {
 
     #[test]
     fn check_const_transform() {
-        let mut timeline = TransformTimeline::new();
+        let mut timeline =
+            TransformTimeline::new(Point3::new(2.0, 3.0, 0.0), Point3::new(2.0, 1.0, 3.0), 1.0);
 
         // Add a new keyframe that linearly interpolates the sphere to a radius of 10.0 after 5.0 seconds
         timeline.scale_sphere(15.0, 5.0, InterpolationType::NERP);
@@ -482,7 +586,8 @@ mod tests {
 
     #[test]
     fn check_lerp_scaling() {
-        let mut timeline = TransformTimeline::new();
+        let mut timeline =
+            TransformTimeline::new(Point3::new(2.0, 3.0, 0.0), Point3::new(2.0, 1.0, 3.0), 1.0);
 
         // Add a new keyframe that linearly interpolates the sphere to a radius of 10.0 after 5.0 seconds
         timeline.scale_sphere(15.0, 5.0, InterpolationType::LERP);
@@ -490,6 +595,7 @@ mod tests {
 
         let result = timeline.combine_and_compute(5.0, Vector4::new(0.0, 0.0, 0.0, 1.0));
         assert_eq!(result[3], 15.0);
+
         let result = timeline.combine_and_compute(3.15, Vector4::new(0.0, 0.0, 0.0, 1.0));
         // This isnt super precise but it shows that lerp works:
         assert!((result[3] - 10.0).abs() < 0.2);

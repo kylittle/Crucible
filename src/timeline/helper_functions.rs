@@ -46,7 +46,7 @@ impl TransformTimeline {
     ) -> Option<&mut Transform> {
         match ttype {
             TransformType::ScaleX => {
-                for transform in self.scale.iter_mut().rev().filter(|tform| {
+                if let Some(transform) = self.scale.iter_mut().rev().find(|tform| {
                     tform.valid_time.is_less(t)
                         && (tform.transform_type == TransformType::ScaleX
                             || tform.transform_type == TransformType::Omni)
@@ -56,7 +56,7 @@ impl TransformTimeline {
                 None
             }
             TransformType::ScaleY => {
-                for transform in self.scale.iter_mut().rev().filter(|tform| {
+                if let Some(transform) = self.scale.iter_mut().rev().find(|tform| {
                     tform.valid_time.is_less(t)
                         && (tform.transform_type == TransformType::ScaleY
                             || tform.transform_type == TransformType::Omni)
@@ -66,7 +66,7 @@ impl TransformTimeline {
                 None
             }
             TransformType::ScaleZ => {
-                for transform in self.scale.iter_mut().rev().filter(|tform| {
+                if let Some(transform) = self.scale.iter_mut().rev().find(|tform| {
                     tform.valid_time.is_less(t)
                         && (tform.transform_type == TransformType::ScaleZ
                             || tform.transform_type == TransformType::Omni)
@@ -76,7 +76,7 @@ impl TransformTimeline {
                 None
             }
             TransformType::ScaleR => {
-                for transform in self.scale.iter_mut().rev().filter(|tform| {
+                if let Some(transform) = self.scale.iter_mut().rev().find(|tform| {
                     tform.valid_time.is_less(t)
                         && (tform.transform_type == TransformType::ScaleR
                             || tform.transform_type == TransformType::Omni)
@@ -86,7 +86,7 @@ impl TransformTimeline {
                 None
             }
             TransformType::Rotate => {
-                for transform in self.rotate.iter_mut().rev().filter(|tform| {
+                if let Some(transform) = self.rotate.iter_mut().rev().find(|tform| {
                     tform.valid_time.is_less(t)
                         && (tform.transform_type == TransformType::Rotate
                             || tform.transform_type == TransformType::Omni)
@@ -96,7 +96,7 @@ impl TransformTimeline {
                 None
             }
             TransformType::TranslateX => {
-                for transform in self.translate.iter_mut().rev().filter(|tform| {
+                if let Some(transform) = self.translate.iter_mut().rev().find(|tform| {
                     tform.valid_time.is_less(t)
                         && (tform.transform_type == TransformType::TranslateX
                             || tform.transform_type == TransformType::Omni)
@@ -106,7 +106,7 @@ impl TransformTimeline {
                 None
             }
             TransformType::TranslateY => {
-                for transform in self.translate.iter_mut().rev().filter(|tform| {
+                if let Some(transform) = self.translate.iter_mut().rev().find(|tform| {
                     tform.valid_time.is_less(t)
                         && (tform.transform_type == TransformType::TranslateY
                             || tform.transform_type == TransformType::Omni)
@@ -116,7 +116,7 @@ impl TransformTimeline {
                 None
             }
             TransformType::TranslateZ => {
-                for transform in self.translate.iter_mut().rev().filter(|tform| {
+                if let Some(transform) = self.translate.iter_mut().rev().find(|tform| {
                     tform.valid_time.is_less(t)
                         && (tform.transform_type == TransformType::TranslateZ
                             || tform.transform_type == TransformType::Omni)
@@ -138,7 +138,7 @@ impl TransformTimeline {
     ) -> Option<&mut Transform> {
         match ttype {
             TransformType::ScaleX => {
-                for transform in self.scale.iter_mut().filter(|tform| {
+                if let Some(transform) = self.scale.iter_mut().find(|tform| {
                     tform.valid_time.is_greater(t) && tform.transform_type == TransformType::ScaleX
                 }) {
                     return Some(transform);
@@ -146,7 +146,7 @@ impl TransformTimeline {
                 None
             }
             TransformType::ScaleY => {
-                for transform in self.scale.iter_mut().filter(|tform| {
+                if let Some(transform) = self.scale.iter_mut().find(|tform| {
                     tform.valid_time.is_greater(t) && tform.transform_type == TransformType::ScaleY
                 }) {
                     return Some(transform);
@@ -154,7 +154,7 @@ impl TransformTimeline {
                 None
             }
             TransformType::ScaleZ => {
-                for transform in self.scale.iter_mut().filter(|tform| {
+                if let Some(transform) = self.scale.iter_mut().find(|tform| {
                     tform.valid_time.is_greater(t) && tform.transform_type == TransformType::ScaleZ
                 }) {
                     return Some(transform);
@@ -162,7 +162,7 @@ impl TransformTimeline {
                 None
             }
             TransformType::ScaleR => {
-                for transform in self.scale.iter_mut().filter(|tform| {
+                if let Some(transform) = self.scale.iter_mut().find(|tform| {
                     tform.valid_time.is_greater(t) && tform.transform_type == TransformType::ScaleR
                 }) {
                     return Some(transform);
@@ -170,7 +170,7 @@ impl TransformTimeline {
                 None
             }
             TransformType::Rotate => {
-                for transform in self.rotate.iter_mut().filter(|tform| {
+                if let Some(transform) = self.rotate.iter_mut().find(|tform| {
                     tform.valid_time.is_greater(t) && tform.transform_type == TransformType::Rotate
                 }) {
                     return Some(transform);
@@ -178,7 +178,7 @@ impl TransformTimeline {
                 None
             }
             TransformType::TranslateX => {
-                for transform in self.translate.iter_mut().filter(|tform| {
+                if let Some(transform) = self.translate.iter_mut().find(|tform| {
                     tform.valid_time.is_greater(t)
                         && tform.transform_type == TransformType::TranslateX
                 }) {
@@ -187,7 +187,7 @@ impl TransformTimeline {
                 None
             }
             TransformType::TranslateY => {
-                for transform in self.translate.iter_mut().filter(|tform| {
+                if let Some(transform) = self.translate.iter_mut().find(|tform| {
                     tform.valid_time.is_greater(t)
                         && tform.transform_type == TransformType::TranslateY
                 }) {
@@ -196,7 +196,7 @@ impl TransformTimeline {
                 None
             }
             TransformType::TranslateZ => {
-                for transform in self.translate.iter_mut().filter(|tform| {
+                if let Some(transform) = self.translate.iter_mut().find(|tform| {
                     tform.valid_time.is_greater(t)
                         && tform.transform_type == TransformType::TranslateZ
                 }) {

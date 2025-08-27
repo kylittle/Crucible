@@ -182,7 +182,7 @@ impl TransformTimeline {
             .scale
             .iter()
             .filter(|tf| tf.valid_time.is_less(t) || tf.valid_time.contains(t))
-            .last()
+            .next_back()
             .unwrap();
 
         let translate_transforms = self
@@ -203,13 +203,6 @@ impl TransformTimeline {
         let outputs = combined_matrix * inputs;
 
         Vector4::from_row_slice(outputs.as_slice())
-        // Then we apply the time to the dynamic matrices
-        // to get a f64 matrix for each transform
-
-        // Then we multiply the matrices together getting the
-        // overall transform
-
-        // Then we apply the transform and return the new positions
     }
 
     // Set Keyframe functions:
@@ -242,14 +235,12 @@ impl TransformTimeline {
 
                 if let TransformResult::ScaleR(start_scale) = prev_end {
                     scale_info = MatrixInfo::new(move |t| start_scale + (r - start_scale) * t);
+                } else if let TransformResult::InitScale(start_scale) = prev_end {
+                    scale_info = MatrixInfo::new(move |t| start_scale + (r - start_scale) * t);
                 } else {
-                    if let TransformResult::InitScale(start_scale) = prev_end {
-                        scale_info = MatrixInfo::new(move |t| start_scale + (r - start_scale) * t);
-                    } else {
-                        panic!(
-                            "Cannot find the previous scale data for radius scale at keyframe: {keyframe}"
-                        )
-                    }
+                    panic!(
+                        "Cannot find the previous scale data for radius scale at keyframe: {keyframe}"
+                    )
                 };
             }
             InterpolationType::NERP => {
@@ -320,15 +311,11 @@ impl TransformTimeline {
 
                 if let TransformResult::TranslateX(start_x) = prev_end.clone() {
                     translate_info = MatrixInfo::new(move |t| start_x + (x - start_x) * t);
+                } else if let TransformResult::InitTranslate(start_p) = prev_end.clone() {
+                    let start_x = start_p.x();
+                    translate_info = MatrixInfo::new(move |t| start_x + (x - start_x) * t);
                 } else {
-                    if let TransformResult::InitTranslate(start_p) = prev_end.clone() {
-                        let start_x = start_p.x();
-                        translate_info = MatrixInfo::new(move |t| start_x + (x - start_x) * t);
-                    } else {
-                        panic!(
-                            "Cannot find the previous translate data for x at keyframe: {keyframe}"
-                        )
-                    }
+                    panic!("Cannot find the previous translate data for x at keyframe: {keyframe}")
                 };
             }
             InterpolationType::NERP => {
@@ -399,15 +386,11 @@ impl TransformTimeline {
 
                 if let TransformResult::TranslateY(start_y) = prev_end.clone() {
                     translate_info = MatrixInfo::new(move |t| start_y + (y - start_y) * t);
+                } else if let TransformResult::InitTranslate(start_p) = prev_end.clone() {
+                    let start_y = start_p.y();
+                    translate_info = MatrixInfo::new(move |t| start_y + (y - start_y) * t);
                 } else {
-                    if let TransformResult::InitTranslate(start_p) = prev_end.clone() {
-                        let start_y = start_p.y();
-                        translate_info = MatrixInfo::new(move |t| start_y + (y - start_y) * t);
-                    } else {
-                        panic!(
-                            "Cannot find the previous translate data for x at keyframe: {keyframe}"
-                        )
-                    }
+                    panic!("Cannot find the previous translate data for x at keyframe: {keyframe}")
                 };
             }
             InterpolationType::NERP => {
@@ -478,15 +461,11 @@ impl TransformTimeline {
 
                 if let TransformResult::TranslateZ(start_z) = prev_end.clone() {
                     translate_info = MatrixInfo::new(move |t| start_z + (z - start_z) * t);
+                } else if let TransformResult::InitTranslate(start_p) = prev_end.clone() {
+                    let start_z = start_p.z();
+                    translate_info = MatrixInfo::new(move |t| start_z + (z - start_z) * t);
                 } else {
-                    if let TransformResult::InitTranslate(start_p) = prev_end.clone() {
-                        let start_z = start_p.z();
-                        translate_info = MatrixInfo::new(move |t| start_z + (z - start_z) * t);
-                    } else {
-                        panic!(
-                            "Cannot find the previous translate data for z at keyframe: {keyframe}"
-                        )
-                    }
+                    panic!("Cannot find the previous translate data for z at keyframe: {keyframe}")
                 };
             }
             InterpolationType::NERP => {

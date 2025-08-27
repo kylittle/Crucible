@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     objects::Hittables,
     scene::Skybox,
-    util::{Color, Degrees, Interval, Point3, Radians, Vec3},
+    utils::{Color, Degrees, Interval, Point3, Radians, Vec3},
 };
 
 /// Ray represents a ray of light with a direction

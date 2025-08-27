@@ -7,7 +7,7 @@ use crate::{
     objects::{Hittables, Sphere},
     scene::Scene,
     texture::{CheckerTexture, ImageTexture, Textures},
-    util::{Color, Point3, Vec3},
+    utils::{Color, Point3, Vec3},
 };
 
 /// Here is a function that generates the demo scene from the end of book 1

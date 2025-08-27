@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::f64::consts::PI;
 use std::fmt::Display;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub};
@@ -662,6 +663,36 @@ impl Interval {
         x.clamp(self.min(), self.max())
     }
 
+    /// Checks if the value is below the interval. In
+    /// other words if the intervals range is_greater than
+    /// the value
+    pub fn is_greater(&self, x: f64) -> bool {
+        x < self.min()
+    }
+
+    /// Checks if the value is above the interval. In
+    /// other words if the intervals range is_less than
+    /// the value
+    pub fn is_less(&self, x: f64) -> bool {
+        x > self.max()
+    }
+
+    /// Returns the porportion of the way that x is through
+    /// the interval TODO: good doc test
+    pub fn proportion(&self, x: f64) -> f64 {
+        (x - self.min()) / (self.max() - self.min())
+    }
+
+    /// Gives an ordering based on the min value
+    /// this is used to check when a transform starts
+    pub fn compare_start(&self, other: &Self) -> Ordering {
+        let (smin, omin) = (self.min(), other.min());
+
+        if smin == omin {Ordering::Equal}
+        else if smin < omin {Ordering::Less}
+        else {Ordering::Greater}
+    }
+
     pub const EMPTY: Interval = Interval::new(f64::INFINITY, -f64::INFINITY);
     pub const UNIVERSE: Interval = Interval::new(-f64::INFINITY, f64::INFINITY);
 }
@@ -851,5 +882,33 @@ mod tests {
 
             assert!(!Interval::EMPTY.contains(x));
         }
+    }
+
+    #[test]
+    fn discrete_contains() {
+        let i = Interval::new(5.0, 5.0);
+
+        assert!(i.contains(5.0));
+    }
+
+    #[test]
+    fn interval_greater() {
+        let i = Interval::new(3.0, 10.0);
+
+        assert!(i.is_greater(2.0))
+    }
+
+    #[test]
+    fn interval_less() {
+        let i = Interval::new(3.0, 10.0);
+
+        assert!(i.is_less(11.0))
+    }
+
+    #[test]
+    fn get_proportion() {
+        let i = Interval::new(2.0, 10.0);
+
+        assert_eq!(i.proportion(4.0), 0.25);
     }
 }

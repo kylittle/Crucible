@@ -9,8 +9,11 @@ pub struct IdVendor {
 }
 
 impl IdVendor {
+    /// Makes an id_vendor and sets the camera as 0, which is treated as a reserved wo
     pub fn new() -> IdVendor {
-        IdVendor { id_map: HashMap::new(), id_to_vend: 0 }
+        let mut id_map = HashMap::new();
+        id_map.insert("cam".to_string(), 0_usize);
+        IdVendor { id_map, id_to_vend: 1 }
     }
 
     /// Returns a unique ID for an alias. Returns None

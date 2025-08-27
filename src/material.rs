@@ -6,7 +6,7 @@ use crate::{
     camera::Ray,
     objects::HitRecord,
     texture::{SolidColor, Textures},
-    util::{Color, Vec3},
+    utils::{Color, Vec3},
 };
 
 /// TODO: Add macros to autogenerate this stuff.

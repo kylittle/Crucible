@@ -6,7 +6,7 @@ use crate::{
     camera::Ray,
     material::Materials,
     objects::bvh::{Aabb, Axis},
-    util::{Interval, Point3, Vec3},
+    utils::{Interval, Point3, Vec3},
 };
 
 /// Contains information when a ray hits an object

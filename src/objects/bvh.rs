@@ -1,6 +1,6 @@
 use crate::{
     camera::Ray,
-    util::{Interval, Point3},
+    utils::{Interval, Point3},
 };
 
 use serde::{Deserialize, Serialize};

@@ -10,7 +10,7 @@ use image::ImageFormat;
 use crate::{
     material::{Lambertian, Materials},
     objects::{HitList, Hittables, Triangle},
-    util::{Color, Point3},
+    utils::{Color, Point3},
 };
 
 /// Loads an object file using the standard Wavefront

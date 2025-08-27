@@ -3,7 +3,7 @@ use crate::{
     camera::Camera,
     objects::{BVHWrapper, HitList, Hittables},
     scene::id_vendor::IdVendor,
-    util::{Color, Interval, Point3},
+    utils::{Color, Interval, Point3},
 };
 
 mod id_vendor;

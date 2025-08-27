@@ -6,4 +6,5 @@ mod texture;
 
 pub mod demo_scenes;
 pub mod scene;
-pub mod util;
+pub mod timeline;
+pub mod utils;

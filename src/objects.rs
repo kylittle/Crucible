@@ -6,6 +6,7 @@ use crate::{
     camera::Ray,
     material::Materials,
     objects::bvh::{Aabb, Axis},
+    timeline::TransformTimeline,
     utils::{Interval, Point3, Vec3},
 };
 
@@ -143,55 +144,26 @@ pub trait Hittable {
 pub struct Sphere {
     pub id: usize,
     pub hide: bool,
-    center: Ray,
-    radius: f64,
+    timeline: TransformTimeline,
     mat: Materials,
     bbox: Aabb,
 }
 
 impl Sphere {
-    pub fn new_stationary(center: Point3, radius: f64, mat: Materials) -> Sphere {
+    pub fn new(center: Point3, radius: f64, mat: Materials) -> Sphere {
         assert!(radius >= 0.0, "Cannot make a sphere with negative radius");
 
+        // TODO: check that this is how bboxs should be built
         let rvec = Vec3::new(radius, radius, radius);
         let bbox = Aabb::new_from_points(center.clone() - rvec.clone(), center.clone() + rvec);
 
         Sphere {
             id: 0,
             hide: false,
-            center: Ray::new(center, Point3::origin()),
-            radius,
+            timeline: TransformTimeline::new_sphere(center, Point3::origin(), radius),
             mat,
             bbox,
         }
-    }
-
-    pub fn new_moving(center1: Point3, center2: Point3, radius: f64, mat: Materials) -> Sphere {
-        assert!(radius >= 0.0, "Cannot make a sphere with negative radius");
-
-        let mut ms = Sphere {
-            id: 0,
-            hide: false,
-            center: Ray::new(center1.clone(), center2 - center1),
-            radius,
-            mat,
-            bbox: Aabb::default(),
-        };
-
-        // TODO: Work this out so that it calculates the bbox dynamically based on time past for animations
-        let rvec = Vec3::new(radius, radius, radius);
-        let box1 = Aabb::new_from_points(
-            ms.center.at(0.0) - rvec.clone(),
-            ms.center.at(0.0) + rvec.clone(),
-        );
-        let box2 = Aabb::new_from_points(
-            ms.center.at(1.0) - rvec.clone(),
-            ms.center.at(1.0) + rvec.clone(),
-        );
-
-        ms.bbox = Aabb::new_from_boxes(&box1, &box2);
-
-        ms
     }
 
     fn get_sphere_uv(p: &Point3) -> (f64, f64) {
@@ -208,13 +180,17 @@ impl Hittable for Sphere {
             return None;
         }
 
-        let current_center = self.center.at(r.time());
+        // Calculate the position of our sphere using our timeline
+        let sphere = self.timeline.combine_and_compute(r.time());
+        let current_center = Point3::new(sphere[0], sphere[1], sphere[2]);
+        let radius = sphere[3];
+
         let oc = current_center.clone() - r.origin().clone(); // (C - P) part of the circle eqn
 
         // Quadratic formula
         let a = r.direction().length_squared();
         let h = r.direction().dot(&oc);
-        let c = oc.length_squared() - self.radius.powi(2);
+        let c = oc.length_squared() - radius.powi(2);
 
         let discriminant = h.powi(2) - a * c;
 
@@ -235,7 +211,7 @@ impl Hittable for Sphere {
         // We have a valid root:
         let t = root;
         let p = r.at(t);
-        let n = (p.clone() - current_center) / self.radius;
+        let n = (p.clone() - current_center) / radius;
 
         // Calc uv for textures:
         let (u, v) = Sphere::get_sphere_uv(&n);

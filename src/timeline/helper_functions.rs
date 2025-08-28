@@ -24,7 +24,7 @@ pub enum TransformResult {
 
 /// Basically the same as a transform result but without the
 /// data
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum TransformType {
     ScaleX,
     ScaleY,

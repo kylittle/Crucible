@@ -14,6 +14,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     objects::Hittables,
     scene::Skybox,
+    timeline::TransformTimeline,
     utils::{Color, Degrees, Interval, Point3, Radians, Vec3},
 };
 
@@ -125,8 +126,8 @@ pub struct Camera {
     aspect_ratio: f64,
 
     // look dir
-    look_from: Point3,
-    look_at: Point3,
+    look_from: TransformTimeline,
+    look_at: TransformTimeline,
     vup: Vec3,
 
     // defocus fields
@@ -145,13 +146,26 @@ pub struct Camera {
     // progress bars
     mp: MultiProgress,
     sty: ProgressStyle,
+
+    // Frame info
+    frame_rate: f64,
+    frame: usize,
+    // Shutter angle is a historical value and measured in degrees simply due to film history
+    // This never gets converted to radians so its okay to leave as an f64
+    shutter_angle: f64,
 }
 
 impl Camera {
-    /// Pass in None for the parameter camera_center to
-    /// get (0, 0, 0) or specify your own center
-    /// TODO: Maybe change to use directions instead of points
-    pub fn new(aspect_ratio: f64, image_width: u32, thread_count: usize) -> Camera {
+    /// Builds a new camera, the camera has an aspect ratio, image_width, frame_rate, shutter_angle, and thread count
+    ///
+    /// frame rate and shutter_angle are locked in after construction, perhaps some of these should not be
+    pub fn new(
+        aspect_ratio: f64,
+        image_width: u32,
+        frame_rate: f64,
+        shutter_angle: f64,
+        thread_count: usize,
+    ) -> Camera {
         // Location and viewport config
         let fov = Degrees::new(90.0).as_radians();
         let h = (fov.get_angle() / 2.0).tan();
@@ -176,8 +190,8 @@ impl Camera {
             vfov: fov,
             aspect_ratio,
 
-            look_from: Point3::new(0.0, 0.0, 0.0),
-            look_at: Point3::new(0.0, 0.0, -1.0),
+            look_from: TransformTimeline::new(Point3::origin(), Point3::origin(), 1.0),
+            look_at: TransformTimeline::new(Point3::origin(), Point3::origin(), 1.0),
             vup: Vec3::new(0.0, 1.0, 0.0),
 
             defocus_angle: Radians::new_from_degrees(0.0),
@@ -192,12 +206,29 @@ impl Camera {
 
             mp,
             sty,
+
+            frame_rate,
+            frame: 0,
+            shutter_angle,
         }
+    }
+
+    fn get_from(&self, t: f64) -> Point3 {
+        let shift_from = self.look_from.combine_and_compute(t);
+        Point3::new(shift_from[0], shift_from[1], shift_from[2])
+    }
+
+    fn get_at(&self, t: f64) -> Point3 {
+        let shift_at = self.look_at.combine_and_compute(t);
+        Point3::new(shift_at[0], shift_at[1], shift_at[2])
     }
 
     /// Sets the cameras center position in the image
     pub fn look_from(&mut self, loc: Point3) {
-        self.look_from = loc;
+        // TODO: There is a bug here since the new timeline has no info about scale or rotation
+        // for now neither of these are implemented on cameras so this is maybe ok, but probably needs to
+        // be fixed
+        self.look_from = TransformTimeline::new(loc, Point3::origin(), 1.0);
 
         // we have to fix the viewport
         self.fix_viewport();
@@ -205,7 +236,7 @@ impl Camera {
 
     /// Sets where the camera looks
     pub fn look_at(&mut self, loc: Point3) {
-        self.look_at = loc;
+        self.look_at = TransformTimeline::new(loc, Point3::origin(), 1.0);
 
         // we have to fix the viewport
         self.fix_viewport();
@@ -284,32 +315,32 @@ impl Camera {
     // the camera can move
     /// Vector representing the horizontal viewport edge
     #[inline]
-    fn viewport_u(&self) -> Vec3 {
-        self.viewport.viewport_width * self.u_basis()
+    fn viewport_u(&self, t: f64) -> Vec3 {
+        self.viewport.viewport_width * self.u_basis(t)
     }
 
     /// Vector representing the vertical viewport edge. It is
     /// negative since the coordinate for the image are opposite
     /// to the camera (we want our vec to point down)
     #[inline]
-    fn viewport_v(&self) -> Vec3 {
-        self.viewport.viewport_height * (-self.v_basis())
+    fn viewport_v(&self, t: f64) -> Vec3 {
+        self.viewport.viewport_height * (-self.v_basis(t))
     }
 
     /// Subdivide the length of our viewport by pixels
     /// this gets the vector between two pixels in the
     /// x-axis.
     #[inline]
-    fn pixel_delta_u(&self) -> Vec3 {
-        self.viewport_u() / self.viewport.image_width as f64
+    fn pixel_delta_u(&self, t: f64) -> Vec3 {
+        self.viewport_u(t) / self.viewport.image_width as f64
     }
 
     /// Subdivide the length of our viewport by pixels
     /// this gets the vector between two pixels in the
     /// y-axis.
     #[inline]
-    fn pixel_delta_v(&self) -> Vec3 {
-        self.viewport_v() / self.viewport.image_height as f64
+    fn pixel_delta_v(&self, t: f64) -> Vec3 {
+        self.viewport_v(t) / self.viewport.image_height as f64
     }
 
     /// Compute the upper left hand corner. This uses the
@@ -317,22 +348,24 @@ impl Camera {
     /// the / 2.0 on the last two lines breaks generality of
     /// camera position.
     #[inline]
-    fn viewport_upperleft(&self) -> Point3 {
-        let cc = self.look_from.clone();
-        cc - (self.focus_dist * self.w_basis()) - self.viewport_u() / 2.0 - self.viewport_v() / 2.0
+    fn viewport_upperleft(&self, t: f64) -> Point3 {
+        let cc = self.get_from(t);
+        cc - (self.focus_dist * self.w_basis(t))
+            - self.viewport_u(t) / 2.0
+            - self.viewport_v(t) / 2.0
     }
 
     #[inline]
-    fn pixel_start_location(&self) -> Point3 {
-        self.viewport_upperleft() + 0.5 * (self.pixel_delta_u() + self.pixel_delta_v())
+    fn pixel_start_location(&self, t: f64) -> Point3 {
+        self.viewport_upperleft(t) + 0.5 * (self.pixel_delta_u(t) + self.pixel_delta_v(t))
     }
 
     /// The camera can take an ij pair in the image and
     /// calculate its position relative to the camera
-    fn get_pixel_pos(&self, i: u32, j: u32, offset: Point3) -> Point3 {
-        self.pixel_start_location()
-            + ((i as f64 + offset.x()) * self.pixel_delta_u())
-            + ((j as f64 + offset.y()) * self.pixel_delta_v())
+    fn get_pixel_pos(&self, i: u32, j: u32, offset: Point3, t: f64) -> Point3 {
+        self.pixel_start_location(t)
+            + ((i as f64 + offset.x()) * self.pixel_delta_u(t))
+            + ((j as f64 + offset.y()) * self.pixel_delta_v(t))
     }
 
     #[inline]
@@ -342,34 +375,39 @@ impl Camera {
 
     // Basis vectors
     #[inline]
-    fn u_basis(&self) -> Vec3 {
-        self.vup.cross(&self.w_basis()).unit_vector()
+    fn u_basis(&self, t: f64) -> Vec3 {
+        self.vup.cross(&self.w_basis(t)).unit_vector()
     }
 
     #[inline]
-    fn v_basis(&self) -> Vec3 {
-        self.w_basis().cross(&self.u_basis())
+    fn v_basis(&self, t: f64) -> Vec3 {
+        self.w_basis(t).cross(&self.u_basis(t))
     }
 
     #[inline]
-    fn w_basis(&self) -> Vec3 {
-        (self.look_from.clone() - self.look_at.clone()).unit_vector()
+    fn w_basis(&self, t: f64) -> Vec3 {
+        let from = self.get_from(t);
+        let at = self.get_at(t);
+
+        (from - at).unit_vector()
     }
 
     #[inline]
-    fn defocus_disk_u(&self) -> Vec3 {
-        self.u_basis() * self.defocus_radius()
+    fn defocus_disk_u(&self, t: f64) -> Vec3 {
+        self.u_basis(t) * self.defocus_radius()
     }
 
     #[inline]
-    fn defocus_disk_v(&self) -> Vec3 {
-        self.v_basis() * self.defocus_radius()
+    fn defocus_disk_v(&self, t: f64) -> Vec3 {
+        self.v_basis(t) * self.defocus_radius()
     }
 
     // This might be repurposeable as disc sampling TODO
-    fn defocus_disk_sample(&self) -> Point3 {
+    fn defocus_disk_sample(&self, t: f64) -> Point3 {
         let p = Point3::random_in_unit_disk();
-        self.look_from.clone() + (p.x() * self.defocus_disk_u()) + (p.y() * self.defocus_disk_v())
+        let from = self.get_from(t);
+
+        from + (p.x() * self.defocus_disk_u(t)) + (p.y() * self.defocus_disk_v(t))
     }
 
     fn cast_ray(
@@ -380,30 +418,38 @@ impl Camera {
         sb: &Skybox,
         world: &Hittables,
     ) -> Color {
-        let cc = self.look_from.clone();
-
         // Store the colors from each sample
         let mut sample_colors = Vec::new();
         let mut rng = rand::rng();
 
+        // Compute current frame time:
+        let current_time = (self.frame as f64) * (1.0 / self.frame_rate);
+        // Compute the shutter length from the shutter angle
+        let shutter_length = (self.shutter_angle / 360.0) * (1.0 / self.frame_rate);
+
         // loop and sample
         for _ in 0..self.samples {
+            // Generate random time sample:
+            let time_sample = current_time + rng.random_range(0.0..=shutter_length);
+
+            // Get camera center at the time_sample
+            let cc = self.get_from(time_sample);
+
             // Sample based on the method
             let offset = match self.sampling_method {
                 SamplingMethod::Square => sample_square(),
             };
 
-            let ps = self.get_pixel_pos(render_i, render_j, offset);
+            let ps = self.get_pixel_pos(render_i, render_j, offset, time_sample);
 
             let ray_orig = if self.defocus_angle.get_angle() <= 0.0 {
                 cc.clone()
             } else {
-                self.defocus_disk_sample()
+                self.defocus_disk_sample(time_sample)
             };
 
             let ray_dir = ps - ray_orig.clone();
-            let ray_time = rng.random();
-            let ray_cast = Ray::new_at_time(ray_orig, ray_dir, ray_time);
+            let ray_cast = Ray::new_at_time(ray_orig, ray_dir, time_sample);
             sample_colors.push(ray_color(ray_cast, max_depth, sb, world));
         }
 
@@ -415,12 +461,7 @@ impl Camera {
     ///
     /// # Error
     /// Returns an error if the file cannot be opened.
-    pub fn render(&self, skybox: &Skybox, world: &Hittables, fname: &str) -> Result<(), Error> {
-        assert!(
-            self.look_at != self.look_from,
-            "look_at and look_from cannot be the same."
-        );
-
+    pub fn render(&mut self, skybox: &Skybox, world: &Hittables, fname: &str) -> Result<(), Error> {
         let iw = self.viewport.image_width;
         let ih = self.viewport.image_height;
 
@@ -465,6 +506,8 @@ impl Camera {
 
         bw.flush()?;
         self.mp.clear().unwrap();
+
+        self.frame += 1;
 
         Ok(())
     }
@@ -537,6 +580,10 @@ impl Clone for Camera {
 
             mp: self.mp.clone(),
             sty: self.sty.clone(),
+
+            frame_rate: self.frame_rate,
+            frame: self.frame,
+            shutter_angle: self.shutter_angle,
         }
     }
 }

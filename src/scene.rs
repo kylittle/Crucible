@@ -7,6 +7,7 @@ use crate::{
 };
 
 mod id_vendor;
+mod scene_animator;
 
 /// The types of skyboxes that can be used in a scene
 /// Currently only Spherical is supported.
@@ -40,6 +41,27 @@ impl SkyboxImage {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ObjectType {
+    Camera,
+    Sphere,
+    TriangleMesh,
+    Triangle,
+}
+
+/// This struct keeps track of information about objects in the scene
+#[derive(Debug, Clone, Copy)]
+pub struct ObjectInfo {
+    id: usize,
+    o_type: ObjectType,
+}
+
+impl ObjectInfo {
+    pub fn new(id: usize, o_type: ObjectType) -> ObjectInfo {
+        ObjectInfo { id, o_type }
+    }
+}
+
 /// A scene holds a camera, elements, a skybox, and the
 /// current frame of a render. The scene will move objects
 /// around if they are moveable as the time changes. This
@@ -50,13 +72,24 @@ pub struct Scene {
     pub scene_cam: Camera,
     elements: HitList,
     skybox: Skybox,
-    frame: u32,
     id_vendor: IdVendor,
 }
 
 impl Scene {
-    pub fn new(aspect_ratio: f64, image_width: u32, thread_count: usize) -> Scene {
-        let scene_cam = Camera::new(aspect_ratio, image_width, thread_count);
+    pub fn new(
+        aspect_ratio: f64,
+        image_width: u32,
+        frame_rate: f64,
+        shutter_angle: f64,
+        thread_count: usize,
+    ) -> Scene {
+        let scene_cam = Camera::new(
+            aspect_ratio,
+            image_width,
+            frame_rate,
+            shutter_angle,
+            thread_count,
+        );
         let elements = HitList::default();
         let skybox = Skybox::Default;
 
@@ -64,7 +97,6 @@ impl Scene {
             scene_cam,
             elements,
             skybox,
-            frame: 0,
             id_vendor: IdVendor::new(),
         }
     }
@@ -91,7 +123,7 @@ impl Scene {
                 self.elements.add(element);
             }
             Hittables::Sphere(mut s) => {
-                let internal_id = self.id_vendor.vend_id(alias);
+                let internal_id = self.id_vendor.vend_id(alias, ObjectType::Sphere);
                 if internal_id.is_none() {
                     panic!(
                         "This sphere's alias collides with another name in the scene! Try changing {alias} to a new name."
@@ -101,7 +133,7 @@ impl Scene {
                 self.elements.add(Hittables::Sphere(s));
             }
             Hittables::Triangle(mut t) => {
-                let internal_id = self.id_vendor.vend_id(alias);
+                let internal_id = self.id_vendor.vend_id(alias, ObjectType::Triangle);
                 if internal_id.is_none() {
                     panic!(
                         "This triangles's alias collides with another name in the scene! Try changing {alias} to a new name."
@@ -116,7 +148,7 @@ impl Scene {
     /// Loads an asset from an obj file, and gives it a name of {alias}
     pub fn load_asset(&mut self, asset_path: &str, alias: &str, scale: f64, shift: Point3) {
         // Check for collisions
-        let internal_id = self.id_vendor.vend_id(alias);
+        let internal_id = self.id_vendor.vend_id(alias, ObjectType::TriangleMesh);
         if internal_id.is_none() {
             panic!(
                 "This mesh's alias collides with another name in the scene! Try changing {alias} to a new name."
@@ -169,7 +201,7 @@ impl Scene {
             return;
         }
 
-        let internal_id = internal_id.unwrap();
+        let internal_id = internal_id.unwrap().id;
 
         for element in self.elements.get_objs().clone() {
             // Check if the element has the internal id
@@ -196,17 +228,10 @@ impl Scene {
         self.elements = updated_list;
     }
 
-    /// Advances the scene forward one frame, when
-    /// render scene is called this value will augment where
-    /// the objects are. TODO consider frame rates
-    pub fn advance_frame(&mut self) {
-        self.frame += 1;
-    }
-
     /// Render scene wraps the HitList before rendering
     /// Scenes keep this unwrapped before rendering for
     /// easy alteration when working with movie type renders
-    pub fn render_scene(&self, fname: &str) {
+    pub fn render_scene(&mut self, fname: &str) {
         let world = BVHWrapper::new_wrapper(self.elements.clone());
 
         // Get rid of the prints soon

@@ -9,7 +9,6 @@ use std::{
 use dashmap::DashMap;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use rand::Rng;
-use serde::{Deserialize, Serialize};
 
 use crate::{
     objects::Hittables,
@@ -21,7 +20,7 @@ use crate::{
 /// Ray represents a ray of light with a direction
 /// and a starting point. Currently this takes ownership
 /// of the origin and direction which may be a mistake
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Ray {
     origin: Point3,
     direction: Vec3,
@@ -126,8 +125,8 @@ pub struct Camera {
     aspect_ratio: f64,
 
     // look dir
-    look_from: TransformTimeline,
-    look_at: TransformTimeline,
+    pub look_from: TransformTimeline,
+    pub look_at: TransformTimeline,
     vup: Vec3,
 
     // defocus fields
@@ -211,6 +210,39 @@ impl Camera {
             frame: 0,
             shutter_angle,
         }
+    }
+
+    pub fn add_pb(&mut self, work: u64) -> ProgressBar {
+        let pb = self.mp.add(ProgressBar::new(work));
+        pb.set_style(self.sty.clone());
+
+        pb
+    }
+
+    pub fn next_frame(&mut self) {
+        self.frame += 1
+    }
+
+    /// Returns a tuple of (width, height)
+    pub fn get_res(&self) -> (usize, usize) {
+        (
+            self.viewport.image_width as usize,
+            self.viewport.image_width as usize,
+        )
+    }
+
+    /// Returns a point representing where the camera originates rays from at its current frame
+    pub fn get_from_frame(&self) -> Point3 {
+        // Convert to seconds
+        let t = (self.frame as f64) * (1.0 / self.frame_rate);
+        self.get_from(t)
+    }
+
+    /// Returns a point representing where the camera is sending rays to at its current frame
+    pub fn get_at_frame(&self) -> Point3 {
+        // Convert to seconds
+        let t = (self.frame as f64) * (1.0 / self.frame_rate);
+        self.get_at(t)
     }
 
     fn get_from(&self, t: f64) -> Point3 {
@@ -416,7 +448,7 @@ impl Camera {
         render_j: u32,
         max_depth: u32,
         sb: &Skybox,
-        world: &Hittables,
+        world: &mut Hittables,
     ) -> Color {
         // Store the colors from each sample
         let mut sample_colors = Vec::new();
@@ -507,7 +539,8 @@ impl Camera {
         bw.flush()?;
         self.mp.clear().unwrap();
 
-        self.frame += 1;
+        // Let the scene advance the frame
+        //self.frame += 1;
 
         Ok(())
     }
@@ -518,7 +551,7 @@ impl Camera {
         world: &Hittables,
     ) -> (Vec<JoinHandle<()>>, Option<mpsc::Sender<ThreadInfo>>) {
         // rendering environment
-        let arc_world = Arc::new(RwLock::new(world.clone()));
+
         let arc_skybox = Arc::new(skybox.clone());
         let arc_cam = Arc::new(self.clone());
 
@@ -530,6 +563,9 @@ impl Camera {
         let mut threads = Vec::with_capacity(self.thread_count);
 
         for id in 0..self.thread_count {
+            // This is bad for efficiency but since each thread can have different times they all need a copy of the world
+            let clone_world = world.clone();
+
             // Make progress bar for thread
             let work = (self.viewport.image_height * self.viewport.image_width) as u64
                 / self.thread_count as u64;
@@ -544,7 +580,7 @@ impl Camera {
                 Arc::clone(&self.results),
                 Arc::clone(&arc_cam),
                 Arc::clone(&arc_skybox),
-                Arc::clone(&arc_world),
+                Arc::new(RwLock::new(clone_world)),
             ));
         }
 
@@ -609,15 +645,12 @@ fn start_thread(
     skybox: Arc<Skybox>,
     world: Arc<RwLock<Hittables>>,
 ) -> JoinHandle<()> {
-    //let pb = mp.add(ProgressBar::new(my_pixels));
-    //pb.set_style(sty.clone());
-
     thread::spawn(move || {
         let id = id;
         let mut progress = 0;
 
         let cam = Box::new(cam);
-        let world = Box::new(world);
+        let mut world = Box::new(world);
 
         loop {
             let message = receiver.lock().unwrap().recv();
@@ -632,7 +665,7 @@ fn start_thread(
                         thread_loc_j,
                         cam.max_depth,
                         &skybox,
-                        &world.read().unwrap(),
+                        Arc::get_mut(&mut world).unwrap().get_mut().unwrap(),
                     );
 
                     results.insert((thread_loc_i, thread_loc_j), color);
@@ -643,7 +676,7 @@ fn start_thread(
                     progress += 1;
                 }
                 Err(_) => {
-                    pb.finish_with_message(format!("t{} done", { id }));
+                    pb.finish_and_clear();
                     break;
                 }
             }
@@ -651,7 +684,7 @@ fn start_thread(
     })
 }
 
-fn ray_color(r: Ray, depth: u32, sb: &Skybox, world: &Hittables) -> Color {
+fn ray_color(r: Ray, depth: u32, sb: &Skybox, world: &mut Hittables) -> Color {
     // If we have reached the max bounces we no longer
     // gather color contribution
     if depth == 0 {

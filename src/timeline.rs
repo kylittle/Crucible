@@ -103,6 +103,14 @@ pub enum InterpolationType {
     LERP,
 }
 
+/// This is an argument that will be passed into relevant transforms to switch between Local and World
+/// transforms. TODO: Maybe add Camera if that is useful?
+#[derive(Debug, Clone)]
+pub enum TransformSpace {
+    World,
+    Local,
+}
+
 /// TODO: I don't think any object needs to store its location after this (with a few exceptions
 /// such as triangle offset vertices CHECK THIS) but some data still needs to be held like info for
 /// scaling
@@ -119,12 +127,11 @@ impl TransformTimeline {
     ///
     /// Scale is a multiplier not the initial size. If for some reason you want to make an object with a
     /// radius of 3 and initialize it with a scale factor of 2x make sure to do each in the correct place
-    pub fn new(start_pos: Point3, start_rot: Point3, start_scale: f64) -> TransformTimeline {
+    pub fn new(start_pos: Point3, _start_rot: Point3, start_scale: f64) -> TransformTimeline {
         let mut scale = Vec::new();
-        let mut rotate = Vec::new();
+        let rotate = Vec::new();
         let mut translate = Vec::new();
 
-        let id = matrix_builder::build_identity();
         let start_scale_mat = matrix_builder::build_other_scaler(start_scale);
         let start_mat = matrix_builder::build_pos(start_pos.clone());
 
@@ -140,13 +147,13 @@ impl TransformTimeline {
 
         // Add the identity as an omni type for transform, change this for initial object rotation
         // TODO: build an initial rotation matrix so we can apply all the rotations up to a time
-        rotate.push(Transform {
-            transform: id.clone(),
-            valid_time: Interval::new(-0.1, -0.1),
-            transform_type: TransformType::Omni,
-            start: TransformResult::InitRotate(start_rot.clone()),
-            end: TransformResult::InitRotate(start_rot.clone()),
-        });
+        // rotate.push(Transform {
+        //     transform: id.clone(),
+        //     valid_time: Interval::new(-0.1, -0.1),
+        //     transform_type: TransformType::Omni,
+        //     start: TransformResult::InitRotate(start_rot.clone()),
+        //     end: TransformResult::InitRotate(start_rot.clone()),
+        // });
 
         translate.push(Transform {
             transform: start_mat,
@@ -170,14 +177,13 @@ impl TransformTimeline {
     /// and just use the scene interface.
     pub fn new_sphere(
         start_pos: Point3,
-        start_rot: Point3,
+        _start_rot: Point3,
         start_radius: f64,
     ) -> TransformTimeline {
         let mut scale = Vec::new();
-        let mut rotate = Vec::new();
+        let rotate = Vec::new();
         let mut translate = Vec::new();
 
-        let id = matrix_builder::build_identity();
         let start_scale_sphere = matrix_builder::build_sphere_scaler(start_radius);
         let start_mat = matrix_builder::build_pos(start_pos.clone());
 
@@ -193,13 +199,13 @@ impl TransformTimeline {
 
         // Add the identity as an omni type for transform, change this for initial object rotation
         // TODO: build an initial rotation matrix so we can apply all the rotations up to a time
-        rotate.push(Transform {
-            transform: id.clone(),
-            valid_time: Interval::new(-0.1, -0.1),
-            transform_type: TransformType::Omni,
-            start: TransformResult::InitRotate(start_rot.clone()),
-            end: TransformResult::InitRotate(start_rot.clone()),
-        });
+        // rotate.push(Transform {
+        //     transform: id.clone(),
+        //     valid_time: Interval::new(-0.1, -0.1),
+        //     transform_type: TransformType::Omni,
+        //     start: TransformResult::InitRotate(start_rot.clone()),
+        //     end: TransformResult::InitRotate(start_rot.clone()),
+        // });
 
         translate.push(Transform {
             transform: start_mat,
@@ -226,7 +232,6 @@ impl TransformTimeline {
     /// of changes in the Objects file
     pub fn combine_and_compute(&self, t: f64) -> Vector4<f64> {
         // Check that there are no overlap transforms TODO: Implement this
-        assert!(true);
 
         // Get the valid matrices based on what time it is TODO: This probably shouldnt be last
         let translate_transforms = self
@@ -240,7 +245,6 @@ impl TransformTimeline {
         for translate in translate_transforms {
             translate_matrix = translate * translate_matrix;
         }
-        dbg!(&translate_matrix);
 
         // TODO: Get the last XYZ scaling or the last R scaling. the type system should make these mutually exclusive
         let scale_matrix = self
@@ -287,8 +291,11 @@ mod tests {
 
     #[test]
     fn check_nerp_scaling() {
-        let mut timeline =
-            TransformTimeline::new(Point3::new(2.0, 3.0, 0.0), Point3::new(2.0, 1.0, 3.0), 1.0);
+        let mut timeline = TransformTimeline::new_sphere(
+            Point3::new(2.0, 3.0, 0.0),
+            Point3::new(2.0, 1.0, 3.0),
+            1.0,
+        );
 
         // Add a new keyframe that linearly interpolates the sphere to a radius of 10.0 after 5.0 seconds
         timeline.scale_sphere(15.0, 5.0, InterpolationType::NERP);
@@ -304,8 +311,11 @@ mod tests {
 
     #[test]
     fn check_lerp_scaling() {
-        let mut timeline =
-            TransformTimeline::new(Point3::new(2.0, 3.0, 0.0), Point3::new(2.0, 1.0, 3.0), 1.0);
+        let mut timeline = TransformTimeline::new_sphere(
+            Point3::new(2.0, 3.0, 0.0),
+            Point3::new(2.0, 1.0, 3.0),
+            1.0,
+        );
 
         // Add a new keyframe that linearly interpolates the sphere to a radius of 10.0 after 5.0 seconds
         timeline.scale_sphere(15.0, 5.0, InterpolationType::LERP);
@@ -324,13 +334,12 @@ mod tests {
         let mut timeline =
             TransformTimeline::new(Point3::new(2.0, 3.0, 1.0), Point3::origin(), 1.0);
 
-        timeline.translate_x(1.0, 5.0, InterpolationType::NERP);
-        timeline.translate_y(10.0, 3.0, InterpolationType::NERP);
+        timeline.translate_x(1.0, 5.0, InterpolationType::NERP, TransformSpace::Local);
+        timeline.translate_y(10.0, 3.0, InterpolationType::NERP, TransformSpace::Local);
 
         // Check that it is at its start point of 2.0
         // NOTE: the last index of the vector must be non-zero or else the equation breaks
         let result = timeline.combine_and_compute(0.0);
-        dbg!(&result);
         assert_eq!(result[0], 2.0);
         assert_eq!(result[1], 3.0);
         // Move it when the keyframe happens

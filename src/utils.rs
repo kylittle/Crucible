@@ -4,7 +4,6 @@ use std::fmt::Display;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub};
 
 use rand::Rng;
-use serde::{Deserialize, Serialize};
 
 /// A struct to represent what internal angle measure a value
 /// is. This one is for degrees.
@@ -69,7 +68,7 @@ impl Radians {
 /// Private type without an external api
 /// API will be exposed through the Color
 /// and Point3 structs.
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq)]
 pub struct Point3 {
     values: (f64, f64, f64),
 }
@@ -337,7 +336,7 @@ impl Div<f64> for Point3 {
 /// # Panics:
 /// If r, g, or b are not between 0 and 1 constructing a
 /// color panics. The type encodes the assumption.
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq)]
 pub struct Color {
     rgb: Point3,
 }
@@ -611,7 +610,7 @@ pub fn random_color() -> Color {
     Color::new(v.x(), v.y(), v.z())
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct Interval {
     range: (f64, f64),
 }

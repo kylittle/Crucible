@@ -12,12 +12,12 @@ pub enum TransformResult {
     ScaleY(f64),
     ScaleZ(f64),
     ScaleR(f64),
-    Rotation(Point3),
+    //Rotation(Point3),
     TranslateX(f64),
     TranslateY(f64),
     TranslateZ(f64),
     InitTranslate(Point3),
-    InitRotate(Point3),
+    //InitRotate(Point3),
     /// We will start with a non-distorted scale
     InitScale(f64),
 }

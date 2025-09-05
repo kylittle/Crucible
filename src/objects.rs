@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, f64::consts::PI, sync::Arc};
+use std::{cmp::Ordering, f64::consts::PI};
 
 mod bvh;
 
@@ -107,7 +107,7 @@ pub enum Hittables {
 }
 
 impl Hittables {
-    pub fn hit(&self, r: &Ray, ray_t: &Interval) -> Option<HitRecord> {
+    pub fn hit(&mut self, r: &Ray, ray_t: &Interval) -> Option<HitRecord> {
         match self {
             Hittables::Sphere(s) => s.hit(r, ray_t),
             Hittables::HitList(l) => l.hit(r, ray_t),
@@ -124,13 +124,25 @@ impl Hittables {
             Hittables::Triangle(t) => t.bounding_box(),
         }
     }
+
+    /// Changes the AABB's position
+    pub fn update_bb(&mut self, time: f64) {
+        match self {
+            Hittables::Sphere(s) => s.update_bb(time),
+            Hittables::HitList(l) => l.update_bb(time),
+            Hittables::BVHWrapper(_) => {
+                todo!("Will we have nested BVH?")
+            }
+            Hittables::Triangle(t) => t.update_bb(time),
+        }
+    }
 }
 
 /// An object must implement this to be rendered. This function
 /// captures the hit data in rec and returns an option with some hit
 /// or none.
 pub trait Hittable {
-    fn hit(&self, r: &Ray, ray_t: &Interval) -> Option<HitRecord>;
+    fn hit(&mut self, r: &Ray, ray_t: &Interval) -> Option<HitRecord>;
     fn bounding_box(&self) -> &Aabb;
 }
 
@@ -144,7 +156,7 @@ pub trait Hittable {
 pub struct Sphere {
     pub id: usize,
     pub hide: bool,
-    timeline: TransformTimeline,
+    pub timeline: TransformTimeline,
     mat: Materials,
     bbox: Aabb,
 }
@@ -172,10 +184,21 @@ impl Sphere {
 
         (phi / (2.0 * PI), theta / PI)
     }
+
+    fn update_bb(&mut self, time: f64) {
+        let sphere = self.timeline.combine_and_compute(time);
+        let current_center = Point3::new(sphere[0], sphere[1], sphere[2]);
+        let radius = sphere[3];
+
+        let rvec = Vec3::new(radius, radius, radius);
+
+        self.bbox =
+            Aabb::new_from_points(current_center.clone() - rvec.clone(), current_center + rvec)
+    }
 }
 
 impl Hittable for Sphere {
-    fn hit(&self, r: &Ray, ray_t: &Interval) -> Option<HitRecord> {
+    fn hit(&mut self, r: &Ray, ray_t: &Interval) -> Option<HitRecord> {
         if self.hide {
             return None;
         }
@@ -255,6 +278,17 @@ impl HitList {
     pub fn get_objs(&self) -> &Vec<Hittables> {
         &self.objs
     }
+
+    pub fn update_bb(&mut self, time: f64) {
+        let mut bbox = Aabb::default();
+
+        for obj in self.objs.iter_mut() {
+            obj.update_bb(time);
+            bbox = Aabb::new_from_boxes(&bbox, obj.bounding_box());
+        }
+
+        self.bbox = bbox;
+    }
 }
 
 impl Default for HitList {
@@ -264,11 +298,11 @@ impl Default for HitList {
 }
 
 impl Hittable for HitList {
-    fn hit(&self, r: &Ray, ray_t: &Interval) -> Option<HitRecord> {
+    fn hit(&mut self, r: &Ray, ray_t: &Interval) -> Option<HitRecord> {
         let mut rec: Option<HitRecord> = None;
         let mut closest = ray_t.max();
 
-        for obj in self.objs.as_slice() {
+        for obj in self.objs.as_mut_slice() {
             let new_interval = Interval::new(ray_t.min(), closest);
             if let Some(obj) = obj.hit(r, &new_interval) {
                 closest = obj.t;
@@ -287,8 +321,8 @@ impl Hittable for HitList {
 /// Wraps hittable to allow for bounding volume hierarchy
 #[derive(Debug, Clone)]
 pub struct BVHWrapper {
-    left: Arc<Hittables>,
-    right: Arc<Hittables>,
+    left: Box<Hittables>,
+    right: Box<Hittables>,
     bbox: Aabb,
 }
 
@@ -355,8 +389,8 @@ impl BVHWrapper {
             right = BVHWrapper::help_generate(objects, mid, end);
         }
 
-        let left = Arc::new(left);
-        let right = Arc::new(right);
+        let left = Box::new(left);
+        let right = Box::new(right);
 
         Hittables::BVHWrapper(BVHWrapper { left, right, bbox })
     }
@@ -376,12 +410,18 @@ impl BVHWrapper {
 }
 
 impl Hittable for BVHWrapper {
-    fn hit(&self, r: &Ray, ray_t: &Interval) -> Option<HitRecord> {
+    fn hit(&mut self, r: &Ray, ray_t: &Interval) -> Option<HitRecord> {
         if !self.bbox.hit(r, &mut ray_t.clone()) {
             return None;
         }
-        let hit_left = self.left.hit(r, ray_t);
 
+        // Update the AABBs based on the ray's time
+        // TODO: Add an AABB rotation method
+        let time = r.time();
+        self.left.update_bb(time);
+        self.right.update_bb(time);
+
+        let hit_left = self.left.hit(r, ray_t);
         let hit_right = self.right.hit(
             r,
             &Interval::new(
@@ -415,15 +455,22 @@ impl Hittable for BVHWrapper {
 pub struct Triangle {
     pub id: usize,
     pub hide: bool,
-    a: Point3,
-    b: Point3,
-    c: Point3,
+    // These will be the same but with different starting transforms
+    // The animator changes these together. An advanced user could add
+    // scene transforms to change these individually
+    pub a_timeline: TransformTimeline,
+    pub b_timeline: TransformTimeline,
+    pub c_timeline: TransformTimeline,
     mat: Materials,
     bbox: Aabb,
 }
 
 impl Triangle {
     pub fn new(a: Point3, b: Point3, c: Point3, mat: Materials) -> Triangle {
+        let a_timeline = TransformTimeline::new(a.clone(), Point3::origin(), 1.0);
+        let b_timeline = TransformTimeline::new(b.clone(), Point3::origin(), 1.0);
+        let c_timeline = TransformTimeline::new(c.clone(), Point3::origin(), 1.0);
+
         let max_points = Triangle::max_points(&a, &b, &c);
         let min_points = Triangle::min_points(&a, &b, &c);
 
@@ -436,9 +483,9 @@ impl Triangle {
         Triangle {
             id: 0,
             hide: false,
-            a,
-            b,
-            c,
+            a_timeline,
+            b_timeline,
+            c_timeline,
             mat,
             bbox,
         }
@@ -459,28 +506,54 @@ impl Triangle {
 
         (x, y, z)
     }
+
+    pub fn update_bb(&mut self, time: f64) {
+        let a = self.a_timeline.combine_and_compute(time);
+        let b = self.b_timeline.combine_and_compute(time);
+        let c = self.c_timeline.combine_and_compute(time);
+
+        let a = Point3::new(a[0], a[1], a[2]);
+        let b = Point3::new(b[0], b[1], b[2]);
+        let c = Point3::new(c[0], c[1], c[2]);
+
+        let max_points = Triangle::max_points(&a, &b, &c);
+        let min_points = Triangle::min_points(&a, &b, &c);
+
+        let x_int = Interval::new(min_points.0, max_points.0);
+        let y_int = Interval::new(min_points.1, max_points.1);
+        let z_int = Interval::new(min_points.2, max_points.2);
+
+        self.bbox = Aabb::new_from_intervals(x_int, y_int, z_int);
+    }
 }
 
 impl Hittable for Triangle {
     /// Based on the Moller-Trumbore algorithm
-    fn hit(&self, r: &Ray, ray_t: &Interval) -> Option<HitRecord> {
+    fn hit(&mut self, r: &Ray, ray_t: &Interval) -> Option<HitRecord> {
         if self.hide {
             return None;
         }
 
-        let e1 = self.b.clone() - self.a.clone();
-        let e2 = self.c.clone() - self.a.clone();
+        let a = self.a_timeline.combine_and_compute(r.time());
+        let b = self.b_timeline.combine_and_compute(r.time());
+        let c = self.c_timeline.combine_and_compute(r.time());
+
+        let a = Point3::new(a[0], a[1], a[2]);
+        let b = Point3::new(b[0], b[1], b[2]);
+        let c = Point3::new(c[0], c[1], c[2]);
+
+        let e1 = b.clone() - a.clone();
+        let e2 = c.clone() - a.clone();
 
         let ray_cross_e2 = r.direction().cross(&e2);
         let det = e1.dot(&ray_cross_e2);
-        //dbg!(det);
 
         if det > -f64::EPSILON && det < f64::EPSILON {
             // The ray is parallel to the triangle
             return None;
         }
         let inv_det = 1.0 / det;
-        let s = r.origin().clone() - self.a.clone();
+        let s = r.origin().clone() - a.clone();
         let u = inv_det * s.dot(&ray_cross_e2);
         if !(0.0..=1.0).contains(&u) {
             return None;
@@ -488,15 +561,12 @@ impl Hittable for Triangle {
 
         let s_cross_e1 = s.cross(&e1);
         let v = inv_det * r.direction().dot(&s_cross_e1);
-        //dbg!(u);
-        //dbg!(v);
         if v < 0.0 || u + v > 1.0 {
             return None;
         }
 
         // Compute t to find where the intersection point occurs
         let t = inv_det * e2.dot(&s_cross_e1);
-        //eprintln!("Triangle");
 
         if ray_t.surrounds(t) {
             let intersection_point = r.at(t);

@@ -1,3 +1,5 @@
+use std::fs;
+
 use crate::{
     asset_loader::{self, RTWImage},
     camera::Camera,
@@ -7,6 +9,7 @@ use crate::{
 };
 
 mod id_vendor;
+mod movie_maker;
 mod scene_animator;
 
 /// The types of skyboxes that can be used in a scene
@@ -73,20 +76,25 @@ pub struct Scene {
     elements: HitList,
     skybox: Skybox,
     id_vendor: IdVendor,
+    duration: Option<f64>,
+    frame_rate: usize,
 }
 
 impl Scene {
-    pub fn new(
+    /// Constructor for images. Note that frame rate and
+    /// shutter angle are still relevant because you may
+    /// want an image with motion blur
+    pub fn new_image(
         aspect_ratio: f64,
         image_width: u32,
-        frame_rate: f64,
+        frame_rate: usize,
         shutter_angle: f64,
         thread_count: usize,
     ) -> Scene {
         let scene_cam = Camera::new(
             aspect_ratio,
             image_width,
-            frame_rate,
+            frame_rate as f64,
             shutter_angle,
             thread_count,
         );
@@ -98,6 +106,39 @@ impl Scene {
             elements,
             skybox,
             id_vendor: IdVendor::new(),
+            duration: None,
+            frame_rate,
+        }
+    }
+
+    /// Constructor for movies, unlike for images this requires a
+    /// duration. This will be in seconds and scene will ensure that
+    /// any frame rate distortion gets accurately computed.
+    pub fn new_movie(
+        aspect_ratio: f64,
+        image_width: u32,
+        frame_rate: usize,
+        shutter_angle: f64,
+        thread_count: usize,
+        duration: f64,
+    ) -> Scene {
+        let scene_cam = Camera::new(
+            aspect_ratio,
+            image_width,
+            frame_rate as f64,
+            shutter_angle,
+            thread_count,
+        );
+        let elements = HitList::default();
+        let skybox = Skybox::Default;
+
+        Scene {
+            scene_cam,
+            elements,
+            skybox,
+            id_vendor: IdVendor::new(),
+            duration: Some(duration),
+            frame_rate,
         }
     }
 
@@ -232,12 +273,64 @@ impl Scene {
     /// Scenes keep this unwrapped before rendering for
     /// easy alteration when working with movie type renders
     pub fn render_scene(&mut self, fname: &str) {
+        if self.duration.is_some() {
+            self.render_movie(fname);
+        } else {
+            self.render_image(fname);
+        }
+    }
+
+    /// Unlike an image this creates a directory with name fname. Inside it creates a file
+    /// called artifacts. This will store an image for each frame. TODO: add a delete artifacts option.
+    /// After rendering each image, this will use the ffmpeg bindings in rust to put together a video with
+    /// the framerate specified by the scene. TODO: Add slow and fast motion keyframing to the scene
+    fn render_movie(&mut self, fname: &str) {
+        fs::create_dir(fname).expect("Cannot make the movie directory");
+        fs::create_dir(fname.to_owned() + "/artifacts")
+            .expect("Failed to create the artifacts subdirectory");
+
+        let frames = self.compute_frame_count();
+        let digit_count = frames.to_string().len();
+
+        let pb = self.scene_cam.add_pb(frames as u64);
+        pb.set_message("starting".to_string());
+
+        // Start rendering loop
+        for frame in 0..frames {
+            let image_num = format!("{frame:0>digit_count$}");
+            let out_name = fname.to_owned() + "/artifacts/image" + &image_num;
+
+            self.render_image(&out_name);
+            self.scene_cam.next_frame();
+
+            pb.set_message(format!("img{frame}"));
+            pb.inc(1);
+        }
+
+        let res = self.scene_cam.get_res();
+        movie_maker::make_mp4(res, self.frame_rate, digit_count, fname);
+        // cleanup artifacts TODO
+        // or perhaps zip it?
+    }
+
+    fn compute_frame_count(&self) -> usize {
+        // TODO: fix for when the cams frame rate changes
+        // For now its just a trivial conversion
+
+        // We round up to include one more frame
+        (self.duration.unwrap() * self.frame_rate as f64).ceil() as usize
+    }
+
+    fn render_image(&mut self, fname: &str) {
         let world = BVHWrapper::new_wrapper(self.elements.clone());
 
         // Get rid of the prints soon
-        match self.scene_cam.render(&self.skybox, &world, fname) {
+        match self
+            .scene_cam
+            .render(&self.skybox, &world, &(fname.to_owned() + ".ppm"))
+        {
             Ok(()) => {
-                eprintln!("Successful render! Image stored at: {fname}");
+                eprintln!("Successful render! Image stored at: {fname}.ppm");
             }
             Err(e) => {
                 eprintln!("Render failed. {e}");

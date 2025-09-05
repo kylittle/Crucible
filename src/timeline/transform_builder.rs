@@ -1,6 +1,6 @@
 use nalgebra::Matrix4;
 
-use crate::timeline::TransformTimeline;
+use crate::timeline::{TransformSpace, TransformTimeline};
 use crate::{
     timeline::{
         InterpolationType, MatrixInfo, Transform,
@@ -345,7 +345,13 @@ impl TransformTimeline {
 
     /// Translates an object along the x axis. Use this for decoupled axis movement. If you want to move an object along all three axis at the same time
     /// try `translate_point`
-    pub fn translate_x(&mut self, x: f64, keyframe: f64, interp: InterpolationType) {
+    pub fn translate_x(
+        &mut self,
+        x: f64,
+        keyframe: f64,
+        interp: InterpolationType,
+        space: TransformSpace,
+    ) {
         assert!(
             keyframe >= 0.0,
             "Cannot add a keyframe before the animation start. You tried to add keyframe: {keyframe} in a x translation"
@@ -356,6 +362,14 @@ impl TransformTimeline {
         let prev_end = prev.end.clone();
         let prev_time = prev.valid_time.max().max(0.0);
 
+        let mut x = x;
+
+        // Make sure the space is in relative coordinates:
+        let world = match space {
+            TransformSpace::Local => false,
+            TransformSpace::World => true,
+        };
+
         // Gets the next transform
         let next = self.next_matching_transform(keyframe, TransformType::TranslateX);
         if next.is_some() {
@@ -365,6 +379,8 @@ impl TransformTimeline {
         // TODO: check for conflicts
         let interval;
         let translate_info;
+        let standard_x;
+
         match interp {
             InterpolationType::LERP => {
                 // Note this starts immediately after the previous if you want the interpolation to be delayed
@@ -372,12 +388,18 @@ impl TransformTimeline {
                 interval = Interval::new(prev_time, keyframe);
 
                 if let TransformResult::TranslateX(start_x) = prev_end.clone() {
-                    translate_info = MatrixInfo::new(
-                        move |t| if start_x > x { -1.0 } else { 1.0 } * (start_x + (x - start_x) * t)
-                    );
+                    standard_x = x;
+                    if world {
+                        x -= start_x;
+                    }
+                    translate_info = MatrixInfo::new(move |t| x * t);
                 } else if let TransformResult::InitTranslate(start_p) = prev_end.clone() {
                     let start_x = start_p.x();
-                    translate_info = MatrixInfo::new(move |t| if start_x > x {-1.0} else {1.0} * (start_x + (x - start_x) * t));
+                    standard_x = x;
+                    if world {
+                        x -= start_x;
+                    }
+                    translate_info = MatrixInfo::new(move |t| x * t);
                 } else {
                     panic!(
                         "Cannot find the previous translate data for x-axis at keyframe: {keyframe}"
@@ -387,12 +409,18 @@ impl TransformTimeline {
             InterpolationType::NERP => {
                 interval = Interval::new(keyframe, keyframe);
                 if let TransformResult::TranslateX(start_x) = prev_end.clone() {
-                    translate_info =
-                        MatrixInfo::new(move |_t| if start_x > x { -1.0 } else { 1.0 } * x);
+                    standard_x = x;
+                    if world {
+                        x -= start_x;
+                    }
+                    translate_info = MatrixInfo::new(move |_t| x);
                 } else if let TransformResult::InitTranslate(start_p) = prev_end.clone() {
                     let start_x = start_p.x();
-                    translate_info =
-                        MatrixInfo::new(move |_t| if start_x > x { -1.0 } else { 1.0 } * x);
+                    standard_x = x;
+                    if world {
+                        x -= start_x;
+                    }
+                    translate_info = MatrixInfo::new(move |_t| x);
                 } else {
                     panic!(
                         "Cannot find the previous translate data for x-axis at keyframe: {keyframe}"
@@ -429,7 +457,7 @@ impl TransformTimeline {
             interval,
             TransformType::TranslateX,
             prev_end,
-            TransformResult::TranslateX(x),
+            TransformResult::TranslateX(standard_x),
         );
 
         self.translate.push(translate);
@@ -440,7 +468,13 @@ impl TransformTimeline {
 
     /// Translates an object along the y axis. Use this for decoupled axis movement. If you want to move an object along all three axis at the same time
     /// try `translate_point`
-    pub fn translate_y(&mut self, y: f64, keyframe: f64, interp: InterpolationType) {
+    pub fn translate_y(
+        &mut self,
+        y: f64,
+        keyframe: f64,
+        interp: InterpolationType,
+        space: TransformSpace,
+    ) {
         assert!(
             keyframe >= 0.0,
             "Cannot add a keyframe before the animation start. You tried to add keyframe: {keyframe} in a y translation"
@@ -449,6 +483,14 @@ impl TransformTimeline {
         let prev = self.most_recent_matching_transform(keyframe, TransformType::TranslateY).expect("Missing transform data! Tried to translate y but could not find a previous position reference!");
         let prev_end = prev.end.clone();
         let prev_time = prev.valid_time.max().max(0.0);
+
+        let mut y = y;
+
+        // Make sure the space is in relative coordinates:
+        let world = match space {
+            TransformSpace::Local => false,
+            TransformSpace::World => true,
+        };
 
         // Gets the next transform
         let next = self.next_matching_transform(keyframe, TransformType::TranslateY);
@@ -459,6 +501,8 @@ impl TransformTimeline {
         // TODO: check for conflicts
         let interval;
         let translate_info;
+        let standard_y;
+
         match interp {
             InterpolationType::LERP => {
                 // Note this starts immediately after the previous if you want the interpolation to be delayed
@@ -466,12 +510,18 @@ impl TransformTimeline {
                 interval = Interval::new(prev_time, keyframe);
 
                 if let TransformResult::TranslateY(start_y) = prev_end.clone() {
-                    translate_info = MatrixInfo::new(
-                        move |t| if start_y > y { -1.0 } else { 1.0 } * (start_y + (y - start_y) * t)
-                    );
+                    standard_y = y;
+                    if world {
+                        y -= start_y;
+                    }
+                    translate_info = MatrixInfo::new(move |t| y * t);
                 } else if let TransformResult::InitTranslate(start_p) = prev_end.clone() {
                     let start_y = start_p.y();
-                    translate_info = MatrixInfo::new(move |t| if start_y > y {-1.0} else {1.0} * (start_y + (y - start_y) * t));
+                    standard_y = y;
+                    if world {
+                        y -= start_y;
+                    }
+                    translate_info = MatrixInfo::new(move |t| y * t);
                 } else {
                     panic!(
                         "Cannot find the previous translate data for y-axis at keyframe: {keyframe}"
@@ -481,12 +531,18 @@ impl TransformTimeline {
             InterpolationType::NERP => {
                 interval = Interval::new(keyframe, keyframe);
                 if let TransformResult::TranslateY(start_y) = prev_end.clone() {
-                    translate_info =
-                        MatrixInfo::new(move |_t| if start_y > y { -1.0 } else { 1.0 } * y);
+                    standard_y = y;
+                    if world {
+                        y -= start_y;
+                    }
+                    translate_info = MatrixInfo::new(move |_t| y);
                 } else if let TransformResult::InitTranslate(start_p) = prev_end.clone() {
                     let start_y = start_p.y();
-                    translate_info =
-                        MatrixInfo::new(move |_t| if start_y > y { -1.0 } else { 1.0 } * y);
+                    standard_y = y;
+                    if world {
+                        y -= start_y;
+                    }
+                    translate_info = MatrixInfo::new(move |_t| y);
                 } else {
                     panic!(
                         "Cannot find the previous translate data for y-axis at keyframe: {keyframe}"
@@ -523,7 +579,7 @@ impl TransformTimeline {
             interval,
             TransformType::TranslateY,
             prev_end,
-            TransformResult::TranslateY(y),
+            TransformResult::TranslateY(standard_y),
         );
 
         self.translate.push(translate);
@@ -534,7 +590,13 @@ impl TransformTimeline {
 
     /// Translates an object along the y axis. Use this for decoupled axis movement. If you want to move an object along all three axis at the same time
     /// try `translate_point`
-    pub fn translate_z(&mut self, z: f64, keyframe: f64, interp: InterpolationType) {
+    pub fn translate_z(
+        &mut self,
+        z: f64,
+        keyframe: f64,
+        interp: InterpolationType,
+        space: TransformSpace,
+    ) {
         assert!(
             keyframe >= 0.0,
             "Cannot add a keyframe before the animation start. You tried to add keyframe: {keyframe} in a z translation"
@@ -542,8 +604,15 @@ impl TransformTimeline {
         // Gets the previous transform result
         let prev = self.most_recent_matching_transform(keyframe, TransformType::TranslateZ).expect("Missing transform data! Tried to translate z but could not find a previous position reference!");
         let prev_end = prev.end.clone();
-        // Clamp the animations into positive time
         let prev_time = prev.valid_time.max().max(0.0);
+
+        let mut z = z;
+
+        // Make sure the space is in relative coordinates:
+        let world = match space {
+            TransformSpace::Local => false,
+            TransformSpace::World => true,
+        };
 
         // Gets the next transform
         let next = self.next_matching_transform(keyframe, TransformType::TranslateZ);
@@ -554,6 +623,8 @@ impl TransformTimeline {
         // TODO: check for conflicts
         let interval;
         let translate_info;
+        let standard_z;
+
         match interp {
             InterpolationType::LERP => {
                 // Note this starts immediately after the previous if you want the interpolation to be delayed
@@ -561,12 +632,18 @@ impl TransformTimeline {
                 interval = Interval::new(prev_time, keyframe);
 
                 if let TransformResult::TranslateZ(start_z) = prev_end.clone() {
-                    translate_info = MatrixInfo::new(
-                        move |t| if start_z > z { -1.0 } else { 1.0 } * (start_z + (z - start_z) * t)
-                    );
+                    standard_z = z;
+                    if world {
+                        z -= start_z;
+                    }
+                    translate_info = MatrixInfo::new(move |t| z * t);
                 } else if let TransformResult::InitTranslate(start_p) = prev_end.clone() {
                     let start_z = start_p.z();
-                    translate_info = MatrixInfo::new(move |t| if start_z > z {-1.0} else {1.0} * (start_z + (z - start_z) * t));
+                    standard_z = z;
+                    if world {
+                        z -= start_z;
+                    }
+                    translate_info = MatrixInfo::new(move |t| z * t);
                 } else {
                     panic!(
                         "Cannot find the previous translate data for z-axis at keyframe: {keyframe}"
@@ -576,12 +653,18 @@ impl TransformTimeline {
             InterpolationType::NERP => {
                 interval = Interval::new(keyframe, keyframe);
                 if let TransformResult::TranslateZ(start_z) = prev_end.clone() {
-                    translate_info =
-                        MatrixInfo::new(move |_t| if start_z > z { -1.0 } else { 1.0 } * z);
+                    standard_z = z;
+                    if world {
+                        z -= start_z;
+                    }
+                    translate_info = MatrixInfo::new(move |_t| z);
                 } else if let TransformResult::InitTranslate(start_p) = prev_end.clone() {
                     let start_z = start_p.z();
-                    translate_info =
-                        MatrixInfo::new(move |_t| if start_z > z { -1.0 } else { 1.0 } * z);
+                    standard_z = z;
+                    if world {
+                        z -= start_z;
+                    }
+                    translate_info = MatrixInfo::new(move |_t| z);
                 } else {
                     panic!(
                         "Cannot find the previous translate data for z-axis at keyframe: {keyframe}"
@@ -618,7 +701,7 @@ impl TransformTimeline {
             interval,
             TransformType::TranslateZ,
             prev_end,
-            TransformResult::TranslateZ(z),
+            TransformResult::TranslateZ(standard_z),
         );
 
         self.translate.push(translate);
@@ -629,10 +712,16 @@ impl TransformTimeline {
 
     /// Here is a function to translate all three axis to a point, note that you have no control over timing or individual interpolation type
     /// if you want any of those use the decoupled translations
-    pub fn translate_point(&mut self, p: Point3, keyframe: f64, interp: InterpolationType) {
-        self.translate_x(p.x(), keyframe, interp.clone());
-        self.translate_y(p.y(), keyframe, interp.clone());
-        self.translate_z(p.z(), keyframe, interp);
+    pub fn translate_point(
+        &mut self,
+        p: Point3,
+        keyframe: f64,
+        interp: InterpolationType,
+        space: TransformSpace,
+    ) {
+        self.translate_x(p.x(), keyframe, interp.clone(), space.clone());
+        self.translate_y(p.y(), keyframe, interp.clone(), space.clone());
+        self.translate_z(p.z(), keyframe, interp, space);
     }
 
     /// Here is a function to scale all three axis to a point, note that you have no control over timing or individual interpolation type

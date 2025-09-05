@@ -41,7 +41,6 @@ pub fn load_obj(file: &str, scale: f64, shift: Point3) -> HitList {
 
     for face in face_list {
         let triangle = build_triangle(face, &vertex_list);
-        //dbg!(&triangle);
         model.add(Hittables::Triangle(triangle));
     }
 

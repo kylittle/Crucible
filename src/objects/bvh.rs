@@ -3,7 +3,6 @@ use crate::{
     utils::{Interval, Point3},
 };
 
-use serde::{Deserialize, Serialize};
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
@@ -16,7 +15,7 @@ pub enum Axis {
 
 /// AABB stores 3 intervals to represent a binding box
 /// this is used for optimization of the ray casting
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct Aabb {
     x: Interval,
     y: Interval,

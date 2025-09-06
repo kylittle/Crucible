@@ -4,6 +4,21 @@ will be a major departure from the book:
 
 https://raytracing.github.io/books/RayTracingInOneWeekend.html
 
+Here are some things generated in this rendering engine:
+
+First here is the obligatory rendering from the end of the RayTracing book! This project has
+come a long way since then:
+
+<img width="1920" height="1080" alt="book1" src="https://github.com/user-attachments/assets/9a231f02-2bd9-435e-9e46-47bdb67f6203" />
+
+Next is the first animation! There are some big gaps here for simplicity. For one orbiting rotations
+don't exist yet. The camera is walking in a box instead. Also the quality is very low. Partly because I have
+destroyed the performance. But also because my laptop is old and weak.
+
+
+https://github.com/user-attachments/assets/9f295113-3829-4b53-a26e-4c56a0c47928
+
+
 Here is a list of current features:
 
 &emsp;- Path-tracing rendering
@@ -18,9 +33,9 @@ Here is a list of current features:
 
 &emsp;- Aliased scene elements for future editing support
 
-Here are some planned features:
-
 &emsp;- Offline animation rendering
+
+Here are some planned features:
 
 &emsp;- Physics driven manipulation of scene elements
 
@@ -34,49 +49,5 @@ Here are some planned features:
 
 TODO: Write a better how to use section here!
 
-This program can be run with a few command line arguments
-and one environment variable.
-
-To change the place to look for assets from the default
-you may define the environment variable `ASSET_DIR`. This
-directory is where the program will search to load files
-from. Alternatively it will default to searching through
-a few directory levels for a directory called `assets`.
-
-The program also takes a few command line arguments:
-
--f or --file  &emsp;&emsp;&emsp;Specifies the file to render the image to
-
--t or --threads &emsp;Specifies the number of threads to use 
-                (defaults to the systems number of threads)
-                
--w or --world&emsp;&emsp;Selects a scene to render from the demo 
-scenes. These are as follows:
-                
-                    1. A scene from the end of the book
-                    
-                    2. The same as above but with motion 
-                        blur
-                        
-                    3. A scene with two checkered spheres
-                    
-                    4. A scene with the Utah teapot
-                    
-                    5. A scene with a sphere wrapped with an
-                        earth texture
-                        
-                    6. A scene featuring a skybox
-
-Try rendering these scenes or make your own! While this
-may be clunky for the time being this will become easier in
-the next release which will add a scripting language for
-efficiently building scenes and movies. 
-
-Finally this project is a work in progress and things
-may not work exactly as expected. Feel free to open issues
-and I will get to them as soon as possible!
-
-The Sponza dragon scene has not been built yet in favor of
-this detour. But when it is the asset is acquired from:
-
-Sponza Dragon asset from Marko Dabrovic sourced at http://hdri.cgtechniques.com/~sponza/files/
+Soon some more will be added to describe how the tool works, but since it is changing so rapidly I am going to
+let this be for now. There is a good chance this project will need a full on docs page

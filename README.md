@@ -1,4 +1,4 @@
-This is the second release version of my ray_tracing 
+This is the third release version of my ray_tracing 
 project! The next release will feature animations and
 will be a major departure from the book: 
 

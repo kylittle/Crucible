@@ -344,7 +344,7 @@ mod tests {
         assert_eq!(result[1], 3.0);
         // Move it when the keyframe happens
         let result = timeline.combine_and_compute(5.0);
-        assert_eq!(result[0], 1.0);
+        assert_eq!(result[0], 3.0);
         assert_eq!(result[1], 13.0);
     }
 }

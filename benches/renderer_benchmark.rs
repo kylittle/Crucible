@@ -2,14 +2,14 @@ use criterion::{Criterion, criterion_group, criterion_main};
 
 use std::{fs, thread};
 
-use ray_tracing::demo_scenes;
+use ray_tracing::demo_images;
 
 /// Tests the renderer using different thread counts
 pub fn rendering_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("Threaded Rendering");
     group.sample_size(10);
 
-    let mut scene = demo_scenes::book1_end_scene(1);
+    let mut scene = demo_images::book1_end_scene(1);
     scene.scene_cam.set_samples(100);
 
     // 1

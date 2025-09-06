@@ -4,6 +4,8 @@ mod material;
 mod objects;
 mod texture;
 
-pub mod demo_scenes;
+pub mod demo_images;
+pub mod demo_movies;
 pub mod scene;
-pub mod util;
+pub mod timeline;
+pub mod utils;

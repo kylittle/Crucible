@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::{
     asset_loader::RTWImage,
-    util::{Color, Interval, Point3},
+    utils::{Color, Interval, Point3},
 };
 
 #[derive(Debug, Clone)]

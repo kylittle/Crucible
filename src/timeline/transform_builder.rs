@@ -28,8 +28,8 @@ impl TransformTimeline {
 
         // Gets the next transform
         let next = self.next_matching_transform(keyframe, TransformType::ScaleR);
-        if next.is_some() {
-            next.unwrap().start = TransformResult::ScaleR(r);
+        if let Some(tform) = next {
+            tform.start = TransformResult::ScaleR(r);
         }
 
         // TODO: check for conflicts
@@ -111,8 +111,8 @@ impl TransformTimeline {
 
         // Gets the next transform
         let next = self.next_matching_transform(keyframe, TransformType::ScaleX);
-        if next.is_some() {
-            next.unwrap().start = TransformResult::ScaleX(x);
+        if let Some(tform) = next {
+            tform.start = TransformResult::ScaleX(x);
         }
 
         // TODO: check for conflicts
@@ -194,8 +194,8 @@ impl TransformTimeline {
 
         // Gets the next transform
         let next = self.next_matching_transform(keyframe, TransformType::ScaleY);
-        if next.is_some() {
-            next.unwrap().start = TransformResult::ScaleY(y);
+        if let Some(tform) = next {
+            tform.start = TransformResult::ScaleY(y);
         }
 
         // TODO: check for conflicts
@@ -277,8 +277,8 @@ impl TransformTimeline {
 
         // Gets the next transform
         let next = self.next_matching_transform(keyframe, TransformType::ScaleZ);
-        if next.is_some() {
-            next.unwrap().start = TransformResult::ScaleZ(z);
+        if let Some(tform) = next {
+            tform.start = TransformResult::ScaleZ(z);
         }
 
         // TODO: check for conflicts
@@ -372,8 +372,8 @@ impl TransformTimeline {
 
         // Gets the next transform
         let next = self.next_matching_transform(keyframe, TransformType::TranslateX);
-        if next.is_some() {
-            next.unwrap().start = TransformResult::TranslateX(x);
+        if let Some(tform) = next {
+            tform.start = TransformResult::TranslateX(x);
         }
 
         // TODO: check for conflicts
@@ -494,8 +494,8 @@ impl TransformTimeline {
 
         // Gets the next transform
         let next = self.next_matching_transform(keyframe, TransformType::TranslateY);
-        if next.is_some() {
-            next.unwrap().start = TransformResult::TranslateY(y);
+        if let Some(tform) = next {
+            tform.start = TransformResult::TranslateY(y);
         }
 
         // TODO: check for conflicts
@@ -616,8 +616,8 @@ impl TransformTimeline {
 
         // Gets the next transform
         let next = self.next_matching_transform(keyframe, TransformType::TranslateZ);
-        if next.is_some() {
-            next.unwrap().start = TransformResult::TranslateZ(z);
+        if let Some(tform) = next {
+            tform.start = TransformResult::TranslateZ(z);
         }
 
         // TODO: check for conflicts

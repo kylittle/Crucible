@@ -131,7 +131,7 @@ impl Hittables {
             Hittables::Sphere(s) => s.update_bb(time),
             Hittables::HitList(l) => l.update_bb(time),
             Hittables::BVHWrapper(_) => {
-                todo!("Will we have nested BVH?")
+                //todo!("Will we have nested BVH?")
             }
             Hittables::Triangle(t) => t.update_bb(time),
         }

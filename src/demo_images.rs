@@ -273,7 +273,7 @@ pub fn checkered_spheres(threads: usize) -> Scene {
 pub fn load_teapot(threads: usize) -> Scene {
     let mut teapot_scene = Scene::new_image(16.0 / 9.0, 400, 24, 180.0, threads);
 
-    teapot_scene.scene_cam.set_samples(500);
+    teapot_scene.scene_cam.set_samples(200);
     teapot_scene.scene_cam.set_max_depth(50);
 
     teapot_scene

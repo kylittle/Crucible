@@ -1,6 +1,7 @@
 [package]
 name = "crucible"
 version = "0.3.2"
+authors = ["Kyle Little <kylelittle935@gmail.com>"]
 edition = "2024"
 
 [dependencies]

@@ -311,7 +311,7 @@ impl Scene {
             self.render_image(&out_name);
             self.scene_cam.next_frame();
 
-            pb.set_message(format!("img{frame}"));
+            pb.set_message(format!("img{}", frame + 1));
             pb.inc(1);
         }
 

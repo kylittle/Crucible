@@ -1,5 +1,5 @@
 use clap::Parser;
-use ray_tracing::demo_builder::{demo_images, demo_movies};
+use crucible::demo_builder::{demo_images, demo_movies};
 
 /// A ray-tracing renderer
 #[derive(Parser, Debug)]

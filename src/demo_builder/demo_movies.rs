@@ -1,7 +1,12 @@
 use std::sync::Arc;
 
 use crate::{
-    materials::{lambertian::Lambertian, metal::Metal, Materials}, objects::{sphere::Sphere, Hittables}, scene::Scene, textures::{checker_texture::CheckerTexture, Textures}, timeline::{InterpolationType, TransformSpace}, utils::{Color, Point3}
+    materials::{Materials, lambertian::Lambertian, metal::Metal},
+    objects::{Hittables, sphere::Sphere},
+    scene::Scene,
+    textures::{Textures, checker_texture::CheckerTexture},
+    timeline::{InterpolationType, TransformSpace},
+    utils::{Color, Point3},
 };
 
 pub fn first_movie(threads: usize, frame_rate: usize, duration: f64) -> Scene {
@@ -73,7 +78,7 @@ pub fn moving_teapot(threads: usize, frame_rate: usize, duration: f64) -> Scene 
 
     teapot_scene
         .scene_cam
-        .look_from(Point3::new(13.0, 2.0, 3.0));
+        .look_from(Point3::new(13.0, 10.0, 3.0));
     teapot_scene.scene_cam.look_at(Point3::new(0.0, 0.0, 0.0));
 
     teapot_scene.scene_cam.set_vfov(20.0);
@@ -81,14 +86,14 @@ pub fn moving_teapot(threads: usize, frame_rate: usize, duration: f64) -> Scene 
     teapot_scene.scene_cam.set_defocus_angle(0.6);
     teapot_scene.scene_cam.set_focus_dist(10.0);
 
-    let metal = Materials::Metal(Metal::new(Color::new(0.8, 0.8, 0.8), 0.05));
+    let metal = Materials::Metal(Metal::new(Color::new(0.8, 0.3, 0.5), 0.05));
 
     // add the teapot
     teapot_scene.load_asset(
         "teapot.obj",
         "teapot",
         0.5,
-        Point3::new(3.0, 0.0, 0.0),
+        Point3::new(0.0, 0.0, 0.0),
         metal,
     );
 
@@ -109,7 +114,15 @@ pub fn moving_teapot(threads: usize, frame_rate: usize, duration: f64) -> Scene 
         "ground",
     );
 
-    teapot_scene.translate_point(Point3::new(0.0, 0.0, -3.0), 2.5, InterpolationType::LERP, TransformSpace::Local, "teapot");
+    teapot_scene.translate_point(
+        Point3::new(0.0, 5.0, 0.0),
+        2.5,
+        InterpolationType::LERP,
+        TransformSpace::Local,
+        "teapot",
+    );
+
+    teapot_scene.scale_r(0.5, 3.0, InterpolationType::LERP, "teapot");
 
     teapot_scene
 }

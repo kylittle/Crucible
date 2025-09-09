@@ -160,7 +160,7 @@ pub fn load_teapot(threads: usize) -> Scene {
 
     teapot_scene
         .scene_cam
-        .look_from(Point3::new(13.0, 2.0, 3.0));
+        .look_from(Point3::new(13.0, 10.0, 3.0));
     teapot_scene.scene_cam.look_at(Point3::new(0.0, 0.0, 0.0));
 
     teapot_scene.scene_cam.set_vfov(20.0);
@@ -168,14 +168,14 @@ pub fn load_teapot(threads: usize) -> Scene {
     teapot_scene.scene_cam.set_defocus_angle(0.6);
     teapot_scene.scene_cam.set_focus_dist(10.0);
 
-    let metal = Materials::Metal(Metal::new(Color::new(0.8, 0.8, 0.8), 0.05));
+    let metal = Materials::Metal(Metal::new(Color::new(0.8, 0.3, 0.5), 0.05));
 
     // add the teapot
     teapot_scene.load_asset(
         "teapot.obj",
         "teapot",
         0.5,
-        Point3::new(3.0, 0.0, 0.0),
+        Point3::new(0.0, 0.0, 0.0),
         metal,
     );
 

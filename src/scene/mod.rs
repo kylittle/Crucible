@@ -1,9 +1,10 @@
 use std::fs;
 
 use crate::{
-    asset_loader::{self, RTWImage},
+    asset_loader::{self, img_loader::RTWImage},
     camera::Camera,
-    objects::{BVHWrapper, HitList, Hittables},
+    materials::Materials,
+    objects::{Hittables, bvhwrapper::BVHWrapper, hitlist::HitList},
     scene::id_vendor::IdVendor,
     utils::{Color, Interval, Point3},
 };
@@ -187,7 +188,14 @@ impl Scene {
     }
 
     /// Loads an asset from an obj file, and gives it a name of {alias}
-    pub fn load_asset(&mut self, asset_path: &str, alias: &str, scale: f64, shift: Point3) {
+    pub fn load_asset(
+        &mut self,
+        asset_path: &str,
+        alias: &str,
+        scale: f64,
+        shift: Point3,
+        mat: Materials,
+    ) {
         // Check for collisions
         let internal_id = self.id_vendor.vend_id(alias, ObjectType::TriangleMesh);
         if internal_id.is_none() {
@@ -197,7 +205,7 @@ impl Scene {
         }
 
         // Load mesh
-        let triangle_mesh = asset_loader::load_obj(asset_path, scale, shift);
+        let triangle_mesh = asset_loader::obj_loader::load_obj(asset_path, scale, shift, mat);
 
         // Flatten the mesh since the id keeps them associated
         for element in triangle_mesh.get_objs() {

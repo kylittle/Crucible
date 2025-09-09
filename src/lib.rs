@@ -1,11 +1,10 @@
 mod asset_loader;
 mod camera;
-mod material;
+mod materials;
 mod objects;
-mod texture;
+mod textures;
 
-pub mod demo_images;
-pub mod demo_movies;
+pub mod demo_builder;
 pub mod scene;
 pub mod timeline;
 pub mod utils;

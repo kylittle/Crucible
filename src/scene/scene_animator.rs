@@ -1,5 +1,5 @@
 use crate::{
-    objects::{HitList, Hittables},
+    objects::{Hittables, hitlist::HitList},
     scene::{ObjectInfo, ObjectType, Scene},
     timeline::{InterpolationType, TransformSpace},
     utils::Point3,

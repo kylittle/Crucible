@@ -1,4 +1,4 @@
 /target
 /render_testing/*
 /benches/criterion_bench.ppm
-/*.ppm
+/out*

@@ -3,10 +3,10 @@ use std::sync::Arc;
 use rand::Rng;
 
 use crate::{
-    material::{Dielectric, Lambertian, Materials, Metal},
-    objects::{Hittables, Sphere},
+    materials::{Materials, dielectric::Dielectric, lambertian::Lambertian, metal::Metal},
+    objects::{Hittables, sphere::Sphere},
     scene::Scene,
-    texture::{CheckerTexture, ImageTexture, Textures},
+    textures::{Textures, checker_texture::CheckerTexture, image_texture::ImageTexture},
     utils::{Color, Point3},
 };
 
@@ -108,124 +108,6 @@ pub fn book1_end_scene(threads: usize) -> Scene {
     b1_scene
 }
 
-// TODO: Decide if this is coming back
-// /// Here is a function that generates a demo scene with moving spheres
-// /// TODO: replace this with the new system
-// pub fn book2_motion_blur_scene(threads: usize) -> Scene {
-//     let mut b2_motion = Scene::new(16.0 / 9.0, 400, threads);
-
-//     b2_motion.scene_cam.set_samples(500);
-//     b2_motion.scene_cam.set_max_depth(50);
-
-//     b2_motion.scene_cam.look_from(Point3::new(13.0, 2.0, 3.0));
-//     b2_motion.scene_cam.look_at(Point3::new(0.0, 0.0, 0.0));
-
-//     b2_motion.scene_cam.set_vfov(20.0);
-
-//     b2_motion.scene_cam.set_defocus_angle(0.6);
-//     b2_motion.scene_cam.set_focus_dist(10.0);
-
-//     let checker = Arc::new(Textures::CheckerTexture(CheckerTexture::new_from_color(
-//         0.32,
-//         Color::new(0.2, 0.3, 0.1),
-//         Color::new(0.9, 0.9, 0.9),
-//     )));
-
-//     let ground_material = Materials::Lambertian(Lambertian::new_from_texture(checker, 1.0));
-//     b2_motion.add_element(
-//         Hittables::Sphere(Sphere::new_stationary(
-//             Point3::new(0.0, -1000.0, 0.0),
-//             1000.0,
-//             ground_material,
-//         )),
-//         "ground",
-//     );
-
-//     // rng to pick material
-//     let mut rng = rand::rng();
-//     let mut counter = 0;
-
-//     for a in -11..11 {
-//         for b in -11..11 {
-//             let choose_mat: f64 = rng.random();
-//             let center = Point3::new(
-//                 a as f64 + 0.9 * rng.random::<f64>(),
-//                 0.2,
-//                 b as f64 + 0.9 * rng.random::<f64>(),
-//             );
-
-//             if (center.clone() - Point3::new(4.0, 0.2, 0.0)).length() > 0.9 {
-//                 if choose_mat < 0.8 {
-//                     // diffuse
-//                     let albedo = Color::random_color() * Color::random_color();
-//                     let sphere_material =
-//                         Materials::Lambertian(Lambertian::new_from_color(albedo, 1.0));
-//                     let center2 = center.clone() + Vec3::new(0.0, rng.random_range(0.0..0.5), 0.0);
-//                     b2_motion.add_element(
-//                         Hittables::Sphere(Sphere::new_moving(
-//                             center,
-//                             center2,
-//                             0.2,
-//                             sphere_material,
-//                         )),
-//                         &("small".to_string() + &counter.to_string()),
-//                     );
-//                 } else if choose_mat < 0.95 {
-//                     // metal
-//                     let albedo = Color::random_color_range(0.5, 1.0);
-//                     let fuzz = rng.random_range(0.0..0.5);
-//                     let sphere_material = Materials::Metal(Metal::new(albedo, fuzz));
-//                     b2_motion.add_element(
-//                         Hittables::Sphere(Sphere::new_stationary(center, 0.2, sphere_material)),
-//                         &("small".to_string() + &counter.to_string()),
-//                     );
-//                 } else {
-//                     // glass
-//                     let sphere_material = Materials::Dielectric(Dielectric::new(1.5));
-//                     b2_motion.add_element(
-//                         Hittables::Sphere(Sphere::new_stationary(center, 0.2, sphere_material)),
-//                         &("small".to_string() + &counter.to_string()),
-//                     );
-//                 }
-//                 counter += 1;
-//             }
-//         }
-//     }
-
-//     let material1 = Materials::Dielectric(Dielectric::new(1.5));
-//     b2_motion.add_element(
-//         Hittables::Sphere(Sphere::new_stationary(
-//             Point3::new(0.0, 1.0, 0.0),
-//             1.0,
-//             material1,
-//         )),
-//         "large_dielectric",
-//     );
-
-//     let material2 =
-//         Materials::Lambertian(Lambertian::new_from_color(Color::new(0.4, 0.2, 0.1), 1.0));
-//     b2_motion.add_element(
-//         Hittables::Sphere(Sphere::new_stationary(
-//             Point3::new(-4.0, 1.0, 0.0),
-//             1.0,
-//             material2,
-//         )),
-//         "large_lambertian",
-//     );
-
-//     let material3 = Materials::Metal(Metal::new(Color::new(0.7, 0.6, 0.5), 0.0));
-//     b2_motion.add_element(
-//         Hittables::Sphere(Sphere::new_stationary(
-//             Point3::new(4.0, 1.0, 0.0),
-//             1.0,
-//             material3,
-//         )),
-//         "large_metal",
-//     );
-
-//     b2_motion
-// }
-
 /// Demo scene for textures
 pub fn checkered_spheres(threads: usize) -> Scene {
     // Make cam mutable to change its behaviors
@@ -286,8 +168,16 @@ pub fn load_teapot(threads: usize) -> Scene {
     teapot_scene.scene_cam.set_defocus_angle(0.6);
     teapot_scene.scene_cam.set_focus_dist(10.0);
 
+    let metal = Materials::Metal(Metal::new(Color::new(0.8, 0.8, 0.8), 0.05));
+
     // add the teapot
-    teapot_scene.load_asset("teapot.obj", "teapot", 0.5, Point3::new(3.0, 0.0, 0.0));
+    teapot_scene.load_asset(
+        "teapot.obj",
+        "teapot",
+        0.5,
+        Point3::new(3.0, 0.0, 0.0),
+        metal,
+    );
 
     // add the ground
     let checker = Arc::new(Textures::CheckerTexture(CheckerTexture::new_from_color(
@@ -341,8 +231,8 @@ pub fn garden_skybox(threads: usize) -> Scene {
 
     garden.scene_cam.set_vfov(40.0);
 
-    let test_ball = Materials::Metal(Metal::new(Color::new(0.8, 0.8, 0.8), 0.05));
-    let ball = Hittables::Sphere(Sphere::new(Point3::new(0.0, 0.0, 0.0), 2.0, test_ball));
+    let metal = Materials::Metal(Metal::new(Color::new(0.8, 0.8, 0.8), 0.05));
+    let ball = Hittables::Sphere(Sphere::new(Point3::new(0.0, 0.0, 0.0), 2.0, metal));
 
     garden.add_element(ball, "metal_ball");
 

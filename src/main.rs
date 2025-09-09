@@ -1,6 +1,5 @@
 use clap::Parser;
-
-use ray_tracing::{demo_images, demo_movies};
+use ray_tracing::demo_builder::{demo_images, demo_movies};
 
 /// A ray-tracing renderer
 #[derive(Parser, Debug)]
@@ -22,7 +21,8 @@ struct Args {
     movie: bool,
     /// If movie is enabled then this is the duration of the movie. If you prefer you can use
     /// the frames arg instead which specifies how many frames the movie will have. If you define
-    /// both the program will panic
+    /// both the program will panic. Currently this argument requires your system to have ffmpeg on your PATH
+    /// TODO: Remove ffmpeg dependencies so this can run as a standalone
     #[arg(short, long)]
     seconds: Option<f64>,
     /// Specifies the frame rate of the movies output. This is independent of the cameras framerate
@@ -52,6 +52,7 @@ fn main() {
         // Grab the scene from demo_movies
         scene = match args.world {
             1 => demo_movies::first_movie(threads, frame_rate, duration),
+            2 => demo_movies::moving_teapot(threads, frame_rate, duration),
             _ => {
                 eprintln!("Invalid world number. Selecting default scene");
                 demo_movies::first_movie(threads, frame_rate, duration)
@@ -63,11 +64,10 @@ fn main() {
         // Grab the scene from demo_images
         scene = match args.world {
             1 => demo_images::book1_end_scene(threads),
-            // 2 => demo_scenes::book2_motion_blur_scene(threads),
-            3 => demo_images::checkered_spheres(threads),
-            4 => demo_images::load_teapot(threads),
-            5 => demo_images::earth(threads),
-            6 => demo_images::garden_skybox(threads),
+            2 => demo_images::checkered_spheres(threads),
+            3 => demo_images::load_teapot(threads),
+            4 => demo_images::earth(threads),
+            5 => demo_images::garden_skybox(threads),
             _ => {
                 eprintln!("Invalid world number. Selecting default scene");
                 demo_images::book1_end_scene(threads)

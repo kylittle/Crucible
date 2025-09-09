@@ -1,7 +1,13 @@
-This is the third release version of my ray_tracing 
-project! The next release will feature animations and
-will be a major departure from the book: 
+# Crucible: A Rust Based Path-Tracer
 
+Warning: This project is in development and will continue to be changing rapidly. Also disclaimer
+I am not a professional graphics programmer, this was based on the RayTracing in One Weekend book, then
+I started adding more features. I think I am getting to the point where it deserves its own name so hence
+Crucible. 
+
+This project gets its name from Metallurgy and not the play! (Though I do also like the play greatly!)
+
+Here is a link to the book this is based on:
 https://raytracing.github.io/books/RayTracingInOneWeekend.html
 
 Here are some things generated in this rendering engine:

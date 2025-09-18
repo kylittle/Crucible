@@ -6,7 +6,10 @@ use crate::{
     materials::{Materials, dielectric::Dielectric, lambertian::Lambertian, metal::Metal},
     objects::{Hittables, sphere::Sphere},
     scene::Scene,
-    textures::{Textures, checker_texture::CheckerTexture, image_texture::ImageTexture},
+    textures::{
+        Textures, checker_texture::CheckerTexture, image_texture::ImageTexture,
+        noise_texture::NoiseTexture,
+    },
     utils::{Color, Point3},
 };
 
@@ -239,4 +242,41 @@ pub fn garden_skybox(threads: usize) -> Scene {
     garden.load_spherical_skybox("garden.hdr");
 
     garden
+}
+
+pub fn perlin_spheres(threads: usize) -> Scene {
+    let mut scene = Scene::new_image(16.0 / 9.0, 400, 24, 180.0, threads);
+
+    scene.scene_cam.set_samples(100);
+    scene.scene_cam.set_max_depth(50);
+
+    scene.scene_cam.set_vfov(20.0);
+    scene.scene_cam.look_from(Point3::new(13.0, 2.0, 3.0));
+    scene.scene_cam.look_at(Point3::new(0.0, 0.0, 0.0));
+
+    scene.scene_cam.set_defocus_angle(0.0);
+
+    let perlin_texture = Textures::NoiseTexture(NoiseTexture::new());
+    scene.add_element(
+        Hittables::Sphere(Sphere::new(
+            Point3::new(0.0, -1000.0, 0.0),
+            1000.0,
+            Materials::Lambertian(Lambertian::new_from_texture(
+                Arc::new(perlin_texture.clone()),
+                1.0,
+            )),
+        )),
+        "earth",
+    );
+
+    scene.add_element(
+        Hittables::Sphere(Sphere::new(
+            Point3::new(0.0, 2.0, 0.0),
+            2.0,
+            Materials::Lambertian(Lambertian::new_from_texture(Arc::new(perlin_texture), 1.0)),
+        )),
+        "orb",
+    );
+
+    scene
 }

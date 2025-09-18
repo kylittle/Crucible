@@ -5,6 +5,10 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub};
 
 use rand::Rng;
 
+mod perlin;
+
+pub use perlin::Perlin;
+
 /// A struct to represent what internal angle measure a value
 /// is. This one is for degrees.
 #[derive(Debug, Clone)]
@@ -687,9 +691,13 @@ impl Interval {
     pub fn compare_start(&self, other: &Self) -> Ordering {
         let (smin, omin) = (self.min(), other.min());
 
-        if smin == omin {Ordering::Equal}
-        else if smin < omin {Ordering::Less}
-        else {Ordering::Greater}
+        if smin == omin {
+            Ordering::Equal
+        } else if smin < omin {
+            Ordering::Less
+        } else {
+            Ordering::Greater
+        }
     }
 
     pub const EMPTY: Interval = Interval::new(f64::INFINITY, -f64::INFINITY);

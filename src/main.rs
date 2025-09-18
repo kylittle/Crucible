@@ -68,6 +68,7 @@ fn main() {
             3 => demo_images::load_teapot(threads),
             4 => demo_images::earth(threads),
             5 => demo_images::garden_skybox(threads),
+            6 => demo_images::perlin_spheres(threads),
             _ => {
                 eprintln!("Invalid world number. Selecting default scene");
                 demo_images::book1_end_scene(threads)

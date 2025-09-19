@@ -44,17 +44,6 @@ impl Sphere {
 
         (phi / (2.0 * PI), theta / PI)
     }
-
-    pub fn update_bb(&mut self, time: f64) {
-        let sphere = self.timeline.combine_and_compute(time);
-        let current_center = Point3::new(sphere[0], sphere[1], sphere[2]);
-        let radius = sphere[3];
-
-        let rvec = Vec3::new(radius, radius, radius);
-
-        self.bbox =
-            Aabb::new_from_points(current_center.clone() - rvec.clone(), current_center + rvec)
-    }
 }
 
 impl Hittable for Sphere {
@@ -106,5 +95,16 @@ impl Hittable for Sphere {
 
     fn bounding_box(&self) -> &Aabb {
         &self.bbox
+    }
+
+    fn update_bb(&mut self, time: f64) {
+        let sphere = self.timeline.combine_and_compute(time);
+        let current_center = Point3::new(sphere[0], sphere[1], sphere[2]);
+        let radius = sphere[3];
+
+        let rvec = Vec3::new(radius, radius, radius);
+
+        self.bbox =
+            Aabb::new_from_points(current_center.clone() - rvec.clone(), current_center + rvec)
     }
 }

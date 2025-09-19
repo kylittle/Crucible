@@ -72,7 +72,7 @@ impl Radians {
 /// Private type without an external api
 /// API will be exposed through the Color
 /// and Point3 structs.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Copy, PartialEq)]
 pub struct Point3 {
     values: (f64, f64, f64),
 }

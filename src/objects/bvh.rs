@@ -35,7 +35,10 @@ impl Default for Aabb {
 impl Aabb {
     /// Takes 3 intervals to make an AABB
     pub fn new_from_intervals(x: Interval, y: Interval, z: Interval) -> Aabb {
-        Aabb { x, y, z }
+        let mut aabb = Aabb { x, y, z };
+        aabb.pad_to_minimums();
+
+        aabb
     }
 
     /// Makes the bounding box from two points representing
@@ -59,7 +62,10 @@ impl Aabb {
             Interval::new(b.z(), a.z())
         };
 
-        Aabb::new_from_intervals(x, y, z)
+        let mut aabb = Aabb::new_from_intervals(x, y, z);
+        aabb.pad_to_minimums();
+
+        aabb
     }
 
     /// Creates a new box containing both of the parameter boxes
@@ -129,6 +135,25 @@ impl Aabb {
         }
 
         true
+    }
+
+    /// Adds padding to intervals with almost no size
+    fn pad_to_minimums(&mut self) {
+        // Pad to make sure no sides of an Aabb will
+        // be 0 thickness
+        const DELTA: f64 = 0.0001;
+        if self.x.size() < DELTA {
+            let x = self.x.clone();
+            self.x = x.pad(DELTA);
+        }
+        if self.y.size() < DELTA {
+            let y = self.y.clone();
+            self.y = y.pad(DELTA);
+        }
+        if self.z.size() < DELTA {
+            let z = self.z.clone();
+            self.z = z.pad(DELTA);
+        }
     }
 
     pub const EMPTY: Aabb = Aabb {

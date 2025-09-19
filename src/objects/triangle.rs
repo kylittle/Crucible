@@ -1,4 +1,10 @@
-use crate::{camera::Ray, materials::Materials, objects::{bvh::Aabb, HitRecord, Hittable}, timeline::TransformTimeline, utils::{Interval, Point3}};
+use crate::{
+    camera::Ray,
+    materials::Materials,
+    objects::{HitRecord, Hittable, bvh::Aabb},
+    timeline::TransformTimeline,
+    utils::{Interval, Point3},
+};
 
 /// Fundamental building block for mesh loading.
 /// TODO: We are ignoring textures for now to get shapes working nicely
@@ -59,25 +65,6 @@ impl Triangle {
         let z = a.z().min(b.z().min(c.z()));
 
         (x, y, z)
-    }
-
-    pub fn update_bb(&mut self, time: f64) {
-        let a = self.a_timeline.combine_and_compute(time);
-        let b = self.b_timeline.combine_and_compute(time);
-        let c = self.c_timeline.combine_and_compute(time);
-
-        let a = Point3::new(a[0], a[1], a[2]);
-        let b = Point3::new(b[0], b[1], b[2]);
-        let c = Point3::new(c[0], c[1], c[2]);
-
-        let max_points = Triangle::max_points(&a, &b, &c);
-        let min_points = Triangle::min_points(&a, &b, &c);
-
-        let x_int = Interval::new(min_points.0, max_points.0);
-        let y_int = Interval::new(min_points.1, max_points.1);
-        let z_int = Interval::new(min_points.2, max_points.2);
-
-        self.bbox = Aabb::new_from_intervals(x_int, y_int, z_int);
     }
 }
 
@@ -141,5 +128,24 @@ impl Hittable for Triangle {
 
     fn bounding_box(&self) -> &Aabb {
         &self.bbox
+    }
+
+    fn update_bb(&mut self, time: f64) {
+        let a = self.a_timeline.combine_and_compute(time);
+        let b = self.b_timeline.combine_and_compute(time);
+        let c = self.c_timeline.combine_and_compute(time);
+
+        let a = Point3::new(a[0], a[1], a[2]);
+        let b = Point3::new(b[0], b[1], b[2]);
+        let c = Point3::new(c[0], c[1], c[2]);
+
+        let max_points = Triangle::max_points(&a, &b, &c);
+        let min_points = Triangle::min_points(&a, &b, &c);
+
+        let x_int = Interval::new(min_points.0, max_points.0);
+        let y_int = Interval::new(min_points.1, max_points.1);
+        let z_int = Interval::new(min_points.2, max_points.2);
+
+        self.bbox = Aabb::new_from_intervals(x_int, y_int, z_int);
     }
 }

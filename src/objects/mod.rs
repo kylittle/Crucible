@@ -3,6 +3,7 @@ mod bvh;
 // Reexport the creatable objects
 pub mod bvhwrapper;
 pub mod hitlist;
+pub mod quad;
 pub mod sphere;
 pub mod triangle;
 
@@ -10,7 +11,7 @@ use crate::{
     camera::Ray,
     materials::Materials,
     objects::{
-        bvh::Aabb, bvhwrapper::BVHWrapper, hitlist::HitList, sphere::Sphere, triangle::Triangle,
+        bvh::Aabb, bvhwrapper::BVHWrapper, hitlist::HitList, quad::Quad, sphere::Sphere, triangle::Triangle
     },
     utils::{Interval, Point3, Vec3},
 };
@@ -112,6 +113,7 @@ pub enum Hittables {
     HitList(HitList),
     BVHWrapper(BVHWrapper),
     Triangle(Triangle),
+    Quad(Quad),
 }
 
 impl Hittables {
@@ -121,6 +123,7 @@ impl Hittables {
             Hittables::HitList(l) => l.hit(r, ray_t),
             Hittables::BVHWrapper(b) => b.hit(r, ray_t),
             Hittables::Triangle(t) => t.hit(r, ray_t),
+            Hittables::Quad(q) => q.hit(r, ray_t),
         }
     }
 
@@ -130,6 +133,7 @@ impl Hittables {
             Hittables::HitList(l) => l.bounding_box(),
             Hittables::BVHWrapper(b) => b.bounding_box(),
             Hittables::Triangle(t) => t.bounding_box(),
+            Hittables::Quad(q) => q.bounding_box(),
         }
     }
 
@@ -140,6 +144,7 @@ impl Hittables {
             Hittables::HitList(l) => l.update_bb(time),
             Hittables::BVHWrapper(_) => {}
             Hittables::Triangle(t) => t.update_bb(time),
+            Hittables::Quad(q) => q.update_bb(time),
         }
     }
 }
@@ -150,4 +155,5 @@ impl Hittables {
 pub trait Hittable {
     fn hit(&mut self, r: &Ray, ray_t: &Interval) -> Option<HitRecord>;
     fn bounding_box(&self) -> &Aabb;
+    fn update_bb(&mut self, time: f64);
 }

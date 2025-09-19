@@ -51,6 +51,7 @@ pub enum ObjectType {
     Sphere,
     TriangleMesh,
     Triangle,
+    Quad,
 }
 
 /// This struct keeps track of information about objects in the scene
@@ -184,6 +185,16 @@ impl Scene {
                 t.id = internal_id.unwrap();
                 self.elements.add(Hittables::Triangle(t));
             }
+            Hittables::Quad(mut q) => {
+                let internal_id = self.id_vendor.vend_id(alias, ObjectType::Quad);
+                if internal_id.is_none() {
+                    panic!(
+                        "This quad's alias collides with another name in the scene! Try changing {alias} to a new name."
+                    );
+                }
+                q.id = internal_id.unwrap();
+                self.elements.add(Hittables::Quad(q));
+            }
         }
     }
 
@@ -224,6 +235,10 @@ impl Scene {
                 Hittables::Triangle(mut t) => {
                     t.id = internal_id.unwrap();
                     self.elements.add(Hittables::Triangle(t));
+                }
+                Hittables::Quad(mut q) => {
+                    q.id = internal_id.unwrap();
+                    self.elements.add(Hittables::Quad(q));
                 }
             }
         }
@@ -269,6 +284,12 @@ impl Scene {
                         t.hide = hide
                     }
                     Hittables::Triangle(t)
+                }
+                Hittables::Quad(mut q) => {
+                    if q.id == internal_id {
+                        q.hide = hide
+                    }
+                    Hittables::Quad(q)
                 }
             };
             updated_list.add(updated);

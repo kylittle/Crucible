@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
 use crate::{
-    materials::{Materials, lambertian::Lambertian, metal::Metal},
-    objects::{Hittables, sphere::Sphere},
+    materials::{lambertian::Lambertian, metal::Metal, Materials},
+    objects::{sphere::Sphere, Hittables},
     scene::Scene,
-    textures::{Textures, checker_texture::CheckerTexture},
+    textures::{checker_texture::CheckerTexture, noise_texture::NoiseTexture, Textures},
     timeline::{InterpolationType, TransformSpace},
     utils::{Color, Point3},
 };
@@ -122,7 +122,82 @@ pub fn moving_teapot(threads: usize, frame_rate: usize, duration: f64) -> Scene 
         "teapot",
     );
 
-    teapot_scene.scale_r(0.5, 3.0, InterpolationType::LERP, "teapot");
-
     teapot_scene
+}
+
+pub fn perlin_movie(threads: usize, frame_rate: usize, duration: f64) -> Scene {
+    let mut scene = Scene::new_movie(16.0 / 9.0, 400, frame_rate, 180.0, threads, duration);
+
+    scene.scene_cam.set_samples(50);
+    scene.scene_cam.set_max_depth(5);
+
+    scene.scene_cam.set_vfov(20.0);
+    scene.scene_cam.look_from(Point3::new(0.0, 0.0, -12.0));
+    scene.scene_cam.look_at(Point3::new(0.0, 0.0, 0.0));
+
+    scene.scene_cam.set_defocus_angle(0.0);
+
+    let perlin_texture = Textures::NoiseTexture(NoiseTexture::new(4.0));
+    scene.add_element(
+        Hittables::Sphere(Sphere::new(
+            Point3::new(0.0, -1000.0, 0.0),
+            1000.0,
+            Materials::Lambertian(Lambertian::new_from_texture(
+                Arc::new(perlin_texture.clone()),
+                1.0,
+            )),
+        )),
+        "earth",
+    );
+
+    scene.add_element(
+        Hittables::Sphere(Sphere::new(
+            Point3::new(0.0, 2.0, 0.0),
+            2.0,
+            Materials::Lambertian(Lambertian::new_from_texture(Arc::new(perlin_texture), 1.0)),
+        )),
+        "orb",
+    );
+
+    // Now we add some animations:
+    // Rotate around the ball
+    // We use world transforms since the camera needs to move around the origin
+    scene.cam_translate_point(
+        Point3::new(12.0, 0.0, 0.0),
+        2.5,
+        InterpolationType::LERP,
+        TransformSpace::World,
+        "from",
+    );
+    scene.cam_translate_point(
+        Point3::new(0.0, 0.0, 12.0),
+        5.0,
+        InterpolationType::LERP,
+        TransformSpace::World,
+        "from",
+    );
+    scene.cam_translate_point(
+        Point3::new(-12.0, 0.0, 0.0),
+        7.5,
+        InterpolationType::LERP,
+        TransformSpace::World,
+        "from",
+    );
+    scene.cam_translate_point(
+        Point3::new(0.0, 0.0, -12.0),
+        10.0,
+        InterpolationType::LERP,
+        TransformSpace::World,
+        "from",
+    );
+    // Lift up and move back
+    scene.cam_translate_point(
+        Point3::new(0.0, 5.0, -20.0),
+        15.0,
+        InterpolationType::LERP,
+        TransformSpace::World,
+        "from",
+    );
+
+    scene
 }

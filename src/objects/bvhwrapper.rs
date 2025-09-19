@@ -1,6 +1,14 @@
 use std::cmp::Ordering;
 
-use crate::{camera::Ray, objects::{bvh::{Aabb, Axis}, hitlist::HitList, HitRecord, Hittable, Hittables}, utils::Interval};
+use crate::{
+    camera::Ray,
+    objects::{
+        HitRecord, Hittable, Hittables,
+        bvh::{Aabb, Axis},
+        hitlist::HitList,
+    },
+    utils::Interval,
+};
 
 /// Wraps hittable to allow for bounding volume hierarchy
 #[derive(Debug, Clone)]
@@ -21,6 +29,7 @@ impl BVHWrapper {
                 Hittables::HitList(_) => true,
                 Hittables::Sphere(s) => !s.hide,
                 Hittables::Triangle(t) => !t.hide,
+                Hittables::Quad(q) => !q.hide,
             })
             .cloned()
             .collect();
@@ -102,8 +111,7 @@ impl Hittable for BVHWrapper {
         // Update the AABBs based on the ray's time
         // TODO: Add an AABB rotation method
         let time = r.time();
-        self.left.update_bb(time);
-        self.right.update_bb(time);
+        self.update_bb(time);
 
         let hit_left = self.left.hit(r, ray_t);
         let hit_right = self.right.hit(
@@ -127,5 +135,10 @@ impl Hittable for BVHWrapper {
 
     fn bounding_box(&self) -> &Aabb {
         &self.bbox
+    }
+
+    fn update_bb(&mut self, time: f64) {
+        self.left.update_bb(time);
+        self.right.update_bb(time);
     }
 }

@@ -58,6 +58,14 @@ impl Scene {
                     }
                     Hittables::Triangle(t)
                 }
+                Hittables::Quad(mut q) => {
+                    if q.id == alias_info.id {
+                        q.q.scale_x(x, keyframe, it.clone());
+                        q.u.scale_x(x, keyframe, it.clone());
+                        q.v.scale_x(x, keyframe, it.clone());
+                    }
+                    Hittables::Quad(q)
+                }
             };
             updated_list.add(updated);
         }
@@ -92,6 +100,14 @@ impl Scene {
                     }
                     Hittables::Triangle(t)
                 }
+                Hittables::Quad(mut q) => {
+                    if q.id == alias_info.id {
+                        q.q.scale_y(y, keyframe, it.clone());
+                        q.u.scale_y(y, keyframe, it.clone());
+                        q.v.scale_y(y, keyframe, it.clone());
+                    }
+                    Hittables::Quad(q)
+                }
             };
             updated_list.add(updated);
         }
@@ -125,6 +141,14 @@ impl Scene {
                         t.c_timeline.scale_z(z, keyframe, it.clone());
                     }
                     Hittables::Triangle(t)
+                }
+                Hittables::Quad(mut q) => {
+                    if q.id == alias_info.id {
+                        q.q.scale_z(z, keyframe, it.clone());
+                        q.u.scale_z(z, keyframe, it.clone());
+                        q.v.scale_z(z, keyframe, it.clone());
+                    }
+                    Hittables::Quad(q)
                 }
             };
             updated_list.add(updated);
@@ -165,6 +189,7 @@ impl Scene {
                     Hittables::Sphere(s)
                 }
                 Hittables::Triangle(_) => element,
+                Hittables::Quad(_) => element,
             };
             updated_list.add(updated);
         }
@@ -200,6 +225,14 @@ impl Scene {
                         t.c_timeline.scale_point(p.clone(), keyframe, it.clone());
                     }
                     Hittables::Triangle(t)
+                }
+                Hittables::Quad(mut q) => {
+                    if q.id == alias_info.id {
+                        q.q.scale_point(p.clone(), keyframe, it.clone());
+                        q.u.scale_point(p.clone(), keyframe, it.clone());
+                        q.v.scale_point(p.clone(), keyframe, it.clone());
+                    }
+                    Hittables::Quad(q)
                 }
             };
             updated_list.add(updated);
@@ -270,6 +303,14 @@ impl Scene {
                     }
                     Hittables::Triangle(t)
                 }
+                Hittables::Quad(mut q) => {
+                    if q.id == alias_info.id {
+                        q.q.translate_x(x, keyframe, it.clone(), space.clone());
+                        q.u.translate_x(x, keyframe, it.clone(), space.clone());
+                        q.v.translate_x(x, keyframe, it.clone(), space.clone());
+                    }
+                    Hittables::Quad(q)
+                }
             };
             updated_list.add(updated);
         }
@@ -323,6 +364,14 @@ impl Scene {
                     }
                     Hittables::Triangle(t)
                 }
+                Hittables::Quad(mut q) => {
+                    if q.id == alias_info.id {
+                        q.q.translate_y(y, keyframe, it.clone(), space.clone());
+                        q.u.translate_y(y, keyframe, it.clone(), space.clone());
+                        q.v.translate_y(y, keyframe, it.clone(), space.clone());
+                    }
+                    Hittables::Quad(q)
+                }
             };
             updated_list.add(updated);
         }
@@ -375,6 +424,14 @@ impl Scene {
                             .translate_z(z, keyframe, it.clone(), space.clone());
                     }
                     Hittables::Triangle(t)
+                }
+                Hittables::Quad(mut q) => {
+                    if q.id == alias_info.id {
+                        q.q.translate_z(z, keyframe, it.clone(), space.clone());
+                        q.u.translate_z(z, keyframe, it.clone(), space.clone());
+                        q.v.translate_z(z, keyframe, it.clone(), space.clone());
+                    }
+                    Hittables::Quad(q)
                 }
             };
             updated_list.add(updated);
@@ -440,6 +497,14 @@ impl Scene {
                         );
                     }
                     Hittables::Triangle(t)
+                }
+                Hittables::Quad(mut q) => {
+                    if q.id == alias_info.id {
+                        q.q.translate_point(p.clone(), keyframe, it.clone(), space.clone());
+                        q.u.translate_point(p.clone(), keyframe, it.clone(), space.clone());
+                        q.v.translate_point(p.clone(), keyframe, it.clone(), space.clone());
+                    }
+                    Hittables::Quad(q)
                 }
             };
             updated_list.add(updated);

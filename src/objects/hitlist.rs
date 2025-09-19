@@ -1,4 +1,8 @@
-use crate::{camera::Ray, objects::{bvh::Aabb, HitRecord, Hittable, Hittables}, utils::Interval};
+use crate::{
+    camera::Ray,
+    objects::{HitRecord, Hittable, Hittables, bvh::Aabb},
+    utils::Interval,
+};
 
 /// This is a general API to store world objects
 /// it also implements Hittable and handles hits for each
@@ -29,17 +33,6 @@ impl HitList {
     pub fn get_objs(&self) -> &Vec<Hittables> {
         &self.objs
     }
-
-    pub fn update_bb(&mut self, time: f64) {
-        let mut bbox = Aabb::default();
-
-        for obj in self.objs.iter_mut() {
-            obj.update_bb(time);
-            bbox = Aabb::new_from_boxes(&bbox, obj.bounding_box());
-        }
-
-        self.bbox = bbox;
-    }
 }
 
 impl Default for HitList {
@@ -66,5 +59,16 @@ impl Hittable for HitList {
 
     fn bounding_box(&self) -> &Aabb {
         &self.bbox
+    }
+
+    fn update_bb(&mut self, time: f64) {
+        let mut bbox = Aabb::default();
+
+        for obj in self.objs.iter_mut() {
+            obj.update_bb(time);
+            bbox = Aabb::new_from_boxes(&bbox, obj.bounding_box());
+        }
+
+        self.bbox = bbox;
     }
 }

@@ -4,13 +4,13 @@ use rand::Rng;
 
 use crate::{
     materials::{Materials, dielectric::Dielectric, lambertian::Lambertian, metal::Metal},
-    objects::{Hittables, sphere::Sphere},
+    objects::{Hittables, quad::Quad, sphere::Sphere},
     scene::Scene,
     textures::{
         Textures, checker_texture::CheckerTexture, image_texture::ImageTexture,
         noise_texture::NoiseTexture,
     },
-    utils::{Color, Point3},
+    utils::{Color, Point3, Vec3},
 };
 
 /// Here is a function that generates the demo scene from the end of book 1
@@ -256,7 +256,7 @@ pub fn perlin_spheres(threads: usize) -> Scene {
 
     scene.scene_cam.set_defocus_angle(0.0);
 
-    let perlin_texture = Textures::NoiseTexture(NoiseTexture::new());
+    let perlin_texture = Textures::NoiseTexture(NoiseTexture::new(4.0));
     scene.add_element(
         Hittables::Sphere(Sphere::new(
             Point3::new(0.0, -1000.0, 0.0),
@@ -276,6 +276,78 @@ pub fn perlin_spheres(threads: usize) -> Scene {
             Materials::Lambertian(Lambertian::new_from_texture(Arc::new(perlin_texture), 1.0)),
         )),
         "orb",
+    );
+
+    scene
+}
+
+pub fn quads(threads: usize) -> Scene {
+    let mut scene = Scene::new_image(16.0 / 9.0, 400, 24, 180.0, threads);
+
+    scene.scene_cam.set_samples(100);
+    scene.scene_cam.set_max_depth(50);
+
+    scene.scene_cam.set_vfov(80.0);
+    scene.scene_cam.look_from(Point3::new(0.0, 0.0, 9.0));
+    scene.scene_cam.look_at(Point3::new(0.0, 0.0, 0.0));
+
+    scene.scene_cam.set_defocus_angle(0.0);
+
+    let left_red =
+        Materials::Lambertian(Lambertian::new_from_color(Color::new(1.0, 0.2, 0.2), 1.0));
+    let back_green =
+        Materials::Lambertian(Lambertian::new_from_color(Color::new(0.2, 1.0, 0.2), 1.0));
+    let right_blue =
+        Materials::Lambertian(Lambertian::new_from_color(Color::new(0.2, 0.2, 1.0), 1.0));
+    let upper_orange =
+        Materials::Lambertian(Lambertian::new_from_color(Color::new(1.0, 0.5, 0.0), 1.0));
+    let lower_teal =
+        Materials::Lambertian(Lambertian::new_from_color(Color::new(0.2, 0.8, 0.8), 1.0));
+
+    scene.add_element(
+        Hittables::Quad(Quad::new(
+            Point3::new(-3.0, -2.0, 5.0),
+            Vec3::new(0.0, 0.0, -4.0),
+            Vec3::new(0.0, 4.0, 0.0),
+            left_red,
+        )),
+        "left",
+    );
+    scene.add_element(
+        Hittables::Quad(Quad::new(
+            Point3::new(-2.0, -2.0, 0.0),
+            Vec3::new(4.0, 0.0, 0.0),
+            Vec3::new(0.0, 4.0, 0.0),
+            back_green,
+        )),
+        "back",
+    );
+    scene.add_element(
+        Hittables::Quad(Quad::new(
+            Point3::new(3.0, -2.0, 1.0),
+            Vec3::new(0.0, 0.0, 4.0),
+            Vec3::new(0.0, 4.0, 0.0),
+            right_blue,
+        )),
+        "right",
+    );
+    scene.add_element(
+        Hittables::Quad(Quad::new(
+            Point3::new(-2.0, 3.0, 1.0),
+            Vec3::new(4.0, 0.0, 0.0),
+            Vec3::new(0.0, 0.0, 4.0),
+            upper_orange,
+        )),
+        "upper",
+    );
+    scene.add_element(
+        Hittables::Quad(Quad::new(
+            Point3::new(-2.0, -3.0, 5.0),
+            Vec3::new(4.0, 0.0, 0.0),
+            Vec3::new(0.0, 0.0, -4.0),
+            lower_teal,
+        )),
+        "lower",
     );
 
     scene

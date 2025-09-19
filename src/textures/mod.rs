@@ -16,7 +16,7 @@ pub enum Textures {
     SolidColor(SolidColor),
     CheckerTexture(CheckerTexture),
     ImageTexture(ImageTexture),
-    NoiseTexture(NoiseTexture),
+    NoiseTexture(Box<NoiseTexture>),
 }
 
 impl Textures {

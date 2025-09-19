@@ -41,7 +41,7 @@ impl Material for Lambertian {
         let mut scatter_dir = rec.normal() + Vec3::random_unit_vector();
 
         if scatter_dir.near_zero() {
-            scatter_dir = rec.normal().clone();
+            scatter_dir = rec.normal();
         }
 
         let scattered = Ray::new_at_time(rec.position(), scatter_dir, r_in.time());

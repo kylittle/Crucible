@@ -338,7 +338,7 @@ impl Clone for Camera {
             // Look targets
             look_from: self.look_from.clone(),
             look_at: self.look_at.clone(),
-            vup: self.vup.clone(),
+            vup: self.vup,
 
             // defocus vars
             defocus_angle: self.defocus_angle.clone(),

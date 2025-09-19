@@ -220,17 +220,17 @@ impl Scene {
                 Hittables::Sphere(_) => element,
                 Hittables::Triangle(mut t) => {
                     if t.id == alias_info.id {
-                        t.a_timeline.scale_point(p.clone(), keyframe, it.clone());
-                        t.b_timeline.scale_point(p.clone(), keyframe, it.clone());
-                        t.c_timeline.scale_point(p.clone(), keyframe, it.clone());
+                        t.a_timeline.scale_point(p, keyframe, it.clone());
+                        t.b_timeline.scale_point(p, keyframe, it.clone());
+                        t.c_timeline.scale_point(p, keyframe, it.clone());
                     }
                     Hittables::Triangle(t)
                 }
                 Hittables::Quad(mut q) => {
                     if q.id == alias_info.id {
-                        q.q.scale_point(p.clone(), keyframe, it.clone());
-                        q.u.scale_point(p.clone(), keyframe, it.clone());
-                        q.v.scale_point(p.clone(), keyframe, it.clone());
+                        q.q.scale_point(p, keyframe, it.clone());
+                        q.u.scale_point(p, keyframe, it.clone());
+                        q.v.scale_point(p, keyframe, it.clone());
                     }
                     Hittables::Quad(q)
                 }
@@ -471,26 +471,26 @@ impl Scene {
                 Hittables::Sphere(mut s) => {
                     if s.id == alias_info.id {
                         s.timeline
-                            .translate_point(p.clone(), keyframe, it.clone(), space.clone());
+                            .translate_point(p, keyframe, it.clone(), space.clone());
                     }
                     Hittables::Sphere(s)
                 }
                 Hittables::Triangle(mut t) => {
                     if t.id == alias_info.id {
                         t.a_timeline.translate_point(
-                            p.clone(),
+                            p,
                             keyframe,
                             it.clone(),
                             space.clone(),
                         );
                         t.b_timeline.translate_point(
-                            p.clone(),
+                            p,
                             keyframe,
                             it.clone(),
                             space.clone(),
                         );
                         t.c_timeline.translate_point(
-                            p.clone(),
+                            p,
                             keyframe,
                             it.clone(),
                             space.clone(),
@@ -500,9 +500,9 @@ impl Scene {
                 }
                 Hittables::Quad(mut q) => {
                     if q.id == alias_info.id {
-                        q.q.translate_point(p.clone(), keyframe, it.clone(), space.clone());
-                        q.u.translate_point(p.clone(), keyframe, it.clone(), space.clone());
-                        q.v.translate_point(p.clone(), keyframe, it.clone(), space.clone());
+                        q.q.translate_point(p, keyframe, it.clone(), space.clone());
+                        q.u.translate_point(p, keyframe, it.clone(), space.clone());
+                        q.v.translate_point(p, keyframe, it.clone(), space.clone());
                     }
                     Hittables::Quad(q)
                 }

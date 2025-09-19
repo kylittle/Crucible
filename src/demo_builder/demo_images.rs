@@ -57,7 +57,7 @@ pub fn book1_end_scene(threads: usize) -> Scene {
                 b as f64 + 0.9 * rng.random::<f64>(),
             );
 
-            if (center.clone() - Point3::new(4.0, 0.2, 0.0)).length() > 0.9 {
+            if (center - Point3::new(4.0, 0.2, 0.0)).length() > 0.9 {
                 if choose_mat < 0.8 {
                     // diffuse
                     let albedo = Color::random_color() * Color::random_color();
@@ -256,7 +256,7 @@ pub fn perlin_spheres(threads: usize) -> Scene {
 
     scene.scene_cam.set_defocus_angle(0.0);
 
-    let perlin_texture = Textures::NoiseTexture(NoiseTexture::new(4.0));
+    let perlin_texture = Textures::NoiseTexture(Box::new(NoiseTexture::new(4.0)));
     scene.add_element(
         Hittables::Sphere(Sphere::new(
             Point3::new(0.0, -1000.0, 0.0),

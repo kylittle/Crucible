@@ -36,7 +36,7 @@ impl Material for Dielectric {
             self.refraction_index
         };
 
-        let unit_direction = Vec3::unit_vector(r_in.direction().clone());
+        let unit_direction = Vec3::unit_vector(*r_in.direction());
         let cos_theta = -unit_direction.clone().dot(&rec.normal()).min(1.0);
         let sin_theta = (1.0 - cos_theta.powi(2)).sqrt();
 

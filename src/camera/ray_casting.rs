@@ -51,8 +51,8 @@ impl Ray {
     }
 
     pub fn at(&self, t: f64) -> Point3 {
-        let dir_clone: Vec3 = self.direction.clone();
-        let orig_clone = self.origin.clone();
+        let dir_clone: Vec3 = self.direction;
+        let orig_clone = self.origin;
 
         let mult_dir = t * dir_clone;
         orig_clone + mult_dir
@@ -94,12 +94,12 @@ impl Camera {
             let ps = self.get_pixel_pos(render_i, render_j, offset, time_sample);
 
             let ray_orig = if self.defocus_angle.get_angle() <= 0.0 {
-                cc.clone()
+                cc
             } else {
                 self.defocus_disk_sample(time_sample)
             };
 
-            let ray_dir = ps - ray_orig.clone();
+            let ray_dir = ps - ray_orig;
             let ray_cast = Ray::new_at_time(ray_orig, ray_dir, time_sample);
             sample_colors.push(ray_color(ray_cast, max_depth, sb, world));
         }
@@ -132,7 +132,7 @@ pub fn ray_color(r: Ray, depth: u32, sb: &Skybox, world: &mut Hittables) -> Colo
 
     match sb {
         Skybox::Spherical(sky) => {
-            let unit_direction = r.direction().clone().unit_vector();
+            let unit_direction = (*r.direction()).unit_vector();
             let theta = unit_direction.x().atan2(unit_direction.z());
             let phi = unit_direction.y().asin();
 
@@ -143,7 +143,7 @@ pub fn ray_color(r: Ray, depth: u32, sb: &Skybox, world: &mut Hittables) -> Colo
             sky.get_color(u, v)
         }
         Skybox::Default => {
-            let unit_direction = r.direction().clone().unit_vector();
+            let unit_direction = (*r.direction()).unit_vector();
             let a = 0.5 * (unit_direction.y() + 1.0);
 
             (1.0 - a) * Color::white() + a * Color::new(0.5, 0.7, 1.0)

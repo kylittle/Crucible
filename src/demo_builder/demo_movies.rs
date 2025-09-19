@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
 use crate::{
-    materials::{lambertian::Lambertian, metal::Metal, Materials},
-    objects::{sphere::Sphere, Hittables},
+    materials::{Materials, lambertian::Lambertian, metal::Metal},
+    objects::{Hittables, sphere::Sphere},
     scene::Scene,
-    textures::{checker_texture::CheckerTexture, noise_texture::NoiseTexture, Textures},
+    textures::{Textures, checker_texture::CheckerTexture, noise_texture::NoiseTexture},
     timeline::{InterpolationType, TransformSpace},
     utils::{Color, Point3},
 };
@@ -137,7 +137,7 @@ pub fn perlin_movie(threads: usize, frame_rate: usize, duration: f64) -> Scene {
 
     scene.scene_cam.set_defocus_angle(0.0);
 
-    let perlin_texture = Textures::NoiseTexture(NoiseTexture::new(4.0));
+    let perlin_texture = Textures::NoiseTexture(Box::new(NoiseTexture::new(4.0)));
     scene.add_element(
         Hittables::Sphere(Sphere::new(
             Point3::new(0.0, -1000.0, 0.0),

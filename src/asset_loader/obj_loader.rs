@@ -33,7 +33,7 @@ pub fn load_obj(file: &str, scale: f64, shift: Point3, mat: Materials) -> HitLis
     let (vertex_list, face_list) = parse_obj(obj_file).expect("Cannot read a line");
     let vertex_list: Vec<Point3> = vertex_list
         .iter()
-        .map(|p| scale * p.clone() + shift.clone())
+        .map(|p| scale * *p + shift)
         .collect();
 
     // TODO: Read in associated texture and map that instead, Perhaps this takes optional mat
@@ -135,9 +135,9 @@ fn parse_face(face_points: Vec<&str>) -> Face {
 
 fn build_triangle(f: Face, points: &[Point3], mat: Materials) -> Triangle {
     // Obj faces are 1 based
-    let a = points[f.a_index - 1].clone();
-    let b = points[f.b_index - 1].clone();
-    let c = points[f.c_index - 1].clone();
+    let a = points[f.a_index - 1];
+    let b = points[f.b_index - 1];
+    let c = points[f.c_index - 1];
 
     Triangle::new(a, b, c, mat)
 }

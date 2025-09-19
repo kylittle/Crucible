@@ -53,7 +53,7 @@ impl Quad {
         let mut rec = rec;
 
         if !unit_interval.contains(a) || !unit_interval.contains(b) {
-            return None;
+            None
         } else {
             rec.u_texture = a;
             rec.v_texture = b;

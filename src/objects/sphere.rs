@@ -27,7 +27,7 @@ impl Sphere {
 
         // TODO: check that this is how bboxs should be built
         let rvec = Vec3::new(radius, radius, radius);
-        let bbox = Aabb::new_from_points(center.clone() - rvec.clone(), center.clone() + rvec);
+        let bbox = Aabb::new_from_points(center - rvec, center + rvec);
 
         Sphere {
             id: 0,
@@ -57,7 +57,7 @@ impl Hittable for Sphere {
         let current_center = Point3::new(sphere[0], sphere[1], sphere[2]);
         let radius = sphere[3];
 
-        let oc = current_center.clone() - r.origin().clone(); // (C - P) part of the circle eqn
+        let oc = current_center - *r.origin(); // (C - P) part of the circle eqn
 
         // Quadratic formula
         let a = r.direction().length_squared();
@@ -83,7 +83,7 @@ impl Hittable for Sphere {
         // We have a valid root:
         let t = root;
         let p = r.at(t);
-        let n = (p.clone() - current_center) / radius;
+        let n = (p - current_center) / radius;
 
         // Calc uv for textures:
         let (u, v) = Sphere::get_sphere_uv(&n);
@@ -105,6 +105,6 @@ impl Hittable for Sphere {
         let rvec = Vec3::new(radius, radius, radius);
 
         self.bbox =
-            Aabb::new_from_points(current_center.clone() - rvec.clone(), current_center + rvec)
+            Aabb::new_from_points(current_center - rvec, current_center + rvec)
     }
 }

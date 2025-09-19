@@ -51,8 +51,7 @@ impl Camera {
 
             // Start the thread
             threads.push(start_thread_cpu(
-                pb,
-                work,
+                (pb, work),
                 id,
                 Arc::clone(&receiver),
                 Arc::clone(&self.results),
@@ -68,8 +67,7 @@ impl Camera {
 
 // starts threads for the cpu-based renderer
 pub fn start_thread_cpu(
-    pb: ProgressBar,
-    work: u64,
+    pb_data: (ProgressBar, u64),
     id: usize,
     receiver: Arc<Mutex<mpsc::Receiver<ThreadInfo>>>,
     results: Arc<DashMap<(u32, u32), Color>>,
@@ -80,6 +78,8 @@ pub fn start_thread_cpu(
     thread::spawn(move || {
         let id = id;
         let mut progress = 0;
+        let pb = pb_data.0;
+        let work = pb_data.1;
 
         let cam = Box::new(cam);
         let mut world = Box::new(world);

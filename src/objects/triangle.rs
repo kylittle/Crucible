@@ -27,9 +27,9 @@ pub struct Triangle {
 
 impl Triangle {
     pub fn new(a: Point3, b: Point3, c: Point3, mat: Materials) -> Triangle {
-        let a_timeline = TransformTimeline::new(a.clone(), Point3::origin(), 1.0);
-        let b_timeline = TransformTimeline::new(b.clone(), Point3::origin(), 1.0);
-        let c_timeline = TransformTimeline::new(c.clone(), Point3::origin(), 1.0);
+        let a_timeline = TransformTimeline::new(a, Point3::origin(), 1.0);
+        let b_timeline = TransformTimeline::new(b, Point3::origin(), 1.0);
+        let c_timeline = TransformTimeline::new(c, Point3::origin(), 1.0);
 
         let max_points = Triangle::max_points(&a, &b, &c);
         let min_points = Triangle::min_points(&a, &b, &c);
@@ -83,8 +83,8 @@ impl Hittable for Triangle {
         let b = Point3::new(b[0], b[1], b[2]);
         let c = Point3::new(c[0], c[1], c[2]);
 
-        let e1 = b.clone() - a.clone();
-        let e2 = c.clone() - a.clone();
+        let e1 = b - a;
+        let e2 = c - a;
 
         let ray_cross_e2 = r.direction().cross(&e2);
         let det = e1.dot(&ray_cross_e2);
@@ -94,7 +94,7 @@ impl Hittable for Triangle {
             return None;
         }
         let inv_det = 1.0 / det;
-        let s = r.origin().clone() - a.clone();
+        let s = *r.origin() - a;
         let u = inv_det * s.dot(&ray_cross_e2);
         if !(0.0..=1.0).contains(&u) {
             return None;

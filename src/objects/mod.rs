@@ -88,11 +88,11 @@ impl HitRecord {
     }
 
     pub fn position(&self) -> Point3 {
-        self.loc.clone()
+        self.loc
     }
 
     pub fn normal(&self) -> Vec3 {
-        self.normal.clone()
+        self.normal
     }
 
     pub fn front_face(&self) -> bool {

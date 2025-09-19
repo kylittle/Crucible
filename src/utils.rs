@@ -153,7 +153,7 @@ impl Point3 {
 
     /// Compute the reflection of a vector across the normal
     pub fn reflect(v: &Vec3, norm: &Vec3) -> Vec3 {
-        v.clone() - 2.0 * v.dot(norm) * norm.clone()
+        *v - 2.0 * v.dot(norm) * *norm
     }
 
     /// Refracts self using the norm of a surface.
@@ -161,9 +161,9 @@ impl Point3 {
     /// of refractions based on the two materials the
     /// vector is transitioning between
     pub fn refract(v: &Vec3, norm: &Vec3, etai_over_etat: f64) -> Vec3 {
-        let cos_theta = (-v.clone()).dot(norm).min(1.0);
-        let r_out_perp = etai_over_etat * (v.clone() + cos_theta * norm.clone());
-        let r_out_parallel = -((1.0 - r_out_perp.length_squared()).abs().sqrt()) * norm.clone();
+        let cos_theta = (-*v).dot(norm).min(1.0);
+        let r_out_perp = etai_over_etat * (*v + cos_theta * *norm);
+        let r_out_parallel = -((1.0 - r_out_perp.length_squared()).abs().sqrt()) * *norm;
 
         r_out_perp + r_out_parallel
     }
@@ -226,9 +226,7 @@ impl Point3 {
 /// three values to deep copy.
 impl Clone for Point3 {
     fn clone(&self) -> Self {
-        Point3 {
-            values: (self.x(), self.y(), self.z()),
-        }
+        *self
     }
 }
 
@@ -415,9 +413,7 @@ impl Color {
 
 impl Clone for Color {
     fn clone(&self) -> Self {
-        Color {
-            rgb: self.rgb.clone(),
-        }
+        Color { rgb: self.rgb }
     }
 }
 

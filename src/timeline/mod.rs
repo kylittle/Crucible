@@ -133,7 +133,7 @@ impl TransformTimeline {
         let mut translate = Vec::new();
 
         let start_scale_mat = matrix_builder::build_other_scaler(start_scale);
-        let start_mat = matrix_builder::build_pos(start_pos.clone());
+        let start_mat = matrix_builder::build_pos(start_pos);
 
         // Since scale behaves differently than the other transforms and doesn't remember its past
         // since that makes it more useable it will start with the identity scale.
@@ -159,8 +159,8 @@ impl TransformTimeline {
             transform: start_mat,
             valid_time: Interval::new(-0.1, -0.1),
             transform_type: TransformType::Omni,
-            start: TransformResult::InitTranslate(start_pos.clone()),
-            end: TransformResult::InitTranslate(start_pos.clone()),
+            start: TransformResult::InitTranslate(start_pos),
+            end: TransformResult::InitTranslate(start_pos),
         });
 
         TransformTimeline {
@@ -185,7 +185,7 @@ impl TransformTimeline {
         let mut translate = Vec::new();
 
         let start_scale_sphere = matrix_builder::build_sphere_scaler(start_radius);
-        let start_mat = matrix_builder::build_pos(start_pos.clone());
+        let start_mat = matrix_builder::build_pos(start_pos);
 
         // Since scale behaves differently than the other transforms and doesn't remember its past
         // since that makes it more useable it will start with the identity scale.
@@ -211,8 +211,8 @@ impl TransformTimeline {
             transform: start_mat,
             valid_time: Interval::new(-0.1, -0.1),
             transform_type: TransformType::Omni,
-            start: TransformResult::InitTranslate(start_pos.clone()),
-            end: TransformResult::InitTranslate(start_pos.clone()),
+            start: TransformResult::InitTranslate(start_pos),
+            end: TransformResult::InitTranslate(start_pos),
         });
 
         TransformTimeline {

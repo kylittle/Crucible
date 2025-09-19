@@ -52,6 +52,7 @@ impl Camera {
             // Start the thread
             threads.push(start_thread_cpu(
                 pb,
+                work,
                 id,
                 Arc::clone(&receiver),
                 Arc::clone(&self.results),
@@ -68,6 +69,7 @@ impl Camera {
 // starts threads for the cpu-based renderer
 pub fn start_thread_cpu(
     pb: ProgressBar,
+    work: u64,
     id: usize,
     receiver: Arc<Mutex<mpsc::Receiver<ThreadInfo>>>,
     results: Arc<DashMap<(u32, u32), Color>>,
@@ -100,8 +102,13 @@ pub fn start_thread_cpu(
 
                     results.insert((thread_loc_i, thread_loc_j), color);
                     if progress % 10 == 0 {
-                        pb.set_message(format!("t{id}"));
-                        pb.inc(10);
+                        let percent_complete = progress as f64 / work as f64 * 100.0;
+                        if percent_complete < 100.0 {
+                            pb.set_message(format!("t{id}: {:.0}%", percent_complete));
+                            pb.inc(10);
+                        } else {
+                            pb.set_message(format!("t{id}: done"));
+                        }
                     }
                     progress += 1;
                 }

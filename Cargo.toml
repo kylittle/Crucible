@@ -1,6 +1,6 @@
 [package]
 name = "crucible"
-version = "0.3.2"
+version = "0.3.4"
 authors = ["Kyle Little <kylelittle935@gmail.com>"]
 edition = "2024"
 

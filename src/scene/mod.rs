@@ -332,7 +332,7 @@ impl Scene {
             self.render_image(&out_name);
             self.scene_cam.next_frame();
 
-            pb.set_message(format!("img{}", frame + 1));
+            pb.set_message(format!("{:.0}%", (frame + 1) as f64 / frames as f64 * 100.0));
             pb.inc(1);
         }
 

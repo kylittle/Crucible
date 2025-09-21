@@ -54,6 +54,7 @@ fn main() {
             1 => demo_movies::first_movie(threads, frame_rate, duration),
             2 => demo_movies::moving_teapot(threads, frame_rate, duration),
             3 => demo_movies::perlin_movie(threads, frame_rate, duration),
+            4 => demo_movies::moving_simple_light(threads, frame_rate, duration),
             _ => {
                 eprintln!("Invalid world number. Selecting default scene");
                 demo_movies::first_movie(threads, frame_rate, duration)
@@ -71,6 +72,7 @@ fn main() {
             5 => demo_images::garden_skybox(threads),
             6 => demo_images::perlin_spheres(threads),
             7 => demo_images::quads(threads),
+            8 => demo_images::simple_light(threads),
             _ => {
                 eprintln!("Invalid world number. Selecting default scene");
                 demo_images::book1_end_scene(threads)

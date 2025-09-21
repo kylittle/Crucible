@@ -18,6 +18,7 @@ mod scene_animator;
 #[derive(Debug, Clone)]
 pub enum Skybox {
     Spherical(SkyboxImage),
+    SolidColor(Color),
     //Planar(SkyboxImage),
     //Triplanar(SkyboxImage),
     //CameraMapping(SkyboxImage),
@@ -150,10 +151,15 @@ impl Scene {
         self.skybox = Skybox::Default
     }
 
+    /// Loads an HDR image and sets it as the worlds skybox
     pub fn load_spherical_skybox(&mut self, file: &str) {
         let image = RTWImage::new(file);
 
         self.skybox = Skybox::Spherical(SkyboxImage { image });
+    }
+
+    pub fn load_color_skybox(&mut self, col: Color) {
+        self.skybox = Skybox::SolidColor(col);
     }
 
     /// Adds an element to the scene with a name of {alias}
@@ -322,7 +328,7 @@ impl Scene {
         let digit_count = frames.to_string().len();
 
         let pb = self.scene_cam.add_pb(frames as u64);
-        pb.set_message("starting".to_string());
+        pb.set_message("0%".to_string());
 
         // Start rendering loop
         for frame in 0..frames {
@@ -332,7 +338,10 @@ impl Scene {
             self.render_image(&out_name);
             self.scene_cam.next_frame();
 
-            pb.set_message(format!("{:.0}%", (frame + 1) as f64 / frames as f64 * 100.0));
+            pb.set_message(format!(
+                "{:.0}%",
+                (frame + 1) as f64 / frames as f64 * 100.0
+            ));
             pb.inc(1);
         }
 

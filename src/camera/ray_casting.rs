@@ -120,14 +120,17 @@ pub fn ray_color(r: Ray, depth: u32, sb: &Skybox, world: &mut Hittables) -> Colo
 
     if let Some(h) = hit {
         let mut attenuation = Color::black();
+        let color_from_emission = h.material().emitted(h.u_texture, h.v_texture, &h.position());
 
         let scatter = h.material().scatter(&r, &h, &mut attenuation);
 
         if let Some(s) = scatter {
-            return attenuation * ray_color(s, depth - 1, sb, world);
+            let color_from_scatter = attenuation * ray_color(s, depth - 1, sb, world);
+            return color_from_scatter + color_from_emission;
+        } else {
+            // No scatter but there is a hit so we return the emitted color
+            return color_from_emission
         }
-
-        return Color::black();
     }
 
     match sb {
@@ -142,6 +145,7 @@ pub fn ray_color(r: Ray, depth: u32, sb: &Skybox, world: &mut Hittables) -> Colo
             // Clamp then scale with the skyboxes size:
             sky.get_color(u, v)
         }
+        Skybox::SolidColor(c) => c.clone(),
         Skybox::Default => {
             let unit_direction = (*r.direction()).unit_vector();
             let a = 0.5 * (unit_direction.y() + 1.0);

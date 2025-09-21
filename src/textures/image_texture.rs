@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::{
     asset_loader::img_loader::RTWImage,
     textures::Texture,
@@ -6,20 +8,22 @@ use crate::{
 
 /// A Texture with an underlying image. See asset_loader for
 /// details of how an image can be loaded
-/// 
+///
 /// TODO: I think that this makes cloning hittables horrendous
 /// perhaps these should point to an RTWImage so that clones are
 /// cheaper. Especially since RTWImage is read only
 #[derive(Debug, Clone)]
 pub struct ImageTexture {
-    image: RTWImage,
+    image: Arc<RTWImage>,
 }
 
 impl ImageTexture {
     pub fn new(filename: &str) -> ImageTexture {
         let image = RTWImage::new(filename);
 
-        ImageTexture { image }
+        ImageTexture {
+            image: Arc::new(image),
+        }
     }
 }
 

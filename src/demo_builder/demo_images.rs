@@ -3,7 +3,10 @@ use std::sync::Arc;
 use rand::Rng;
 
 use crate::{
-    materials::{Materials, dielectric::Dielectric, lambertian::Lambertian, metal::Metal},
+    materials::{
+        Materials, dielectric::Dielectric, diffuse_light::DiffuseLight, lambertian::Lambertian,
+        metal::Metal,
+    },
     objects::{Hittables, quad::Quad, sphere::Sphere},
     scene::Scene,
     textures::{
@@ -349,6 +352,51 @@ pub fn quads(threads: usize) -> Scene {
         )),
         "lower",
     );
+
+    scene
+}
+
+pub fn simple_light(threads: usize) -> Scene {
+    let mut scene = Scene::new_image(16.0 / 9.0, 400, 24, 180.0, threads);
+
+    scene.scene_cam.set_samples(100);
+    scene.scene_cam.set_max_depth(50);
+
+    scene.scene_cam.set_vfov(20.0);
+    scene.scene_cam.look_from(Point3::new(26.0, 3.0, 6.0));
+    scene.scene_cam.look_at(Point3::new(0.0, 2.0, 0.0));
+    scene.scene_cam.set_defocus_angle(0.0);
+
+    // Turn off any light so we can see our diffuse light
+    scene.load_color_skybox(Color::new(0.0, 0.0, 0.0));
+
+    // Objects:
+    let perlin_tex = Arc::new(Textures::NoiseTexture(Box::new(NoiseTexture::new(4.0))));
+    let diff_light =
+        Materials::DiffuseLight(DiffuseLight::new_from_color(Color::new(1.0, 1.0, 1.0)));
+
+    let ground = Hittables::Sphere(Sphere::new(
+        Point3::new(0.0, -1000.0, 0.0),
+        1000.0,
+        Materials::Lambertian(Lambertian::new_from_texture(Arc::clone(&perlin_tex), 1.0)),
+    ));
+
+    let orb = Hittables::Sphere(Sphere::new(
+        Point3::new(0.0, 2.0, 0.0),
+        2.0,
+        Materials::Lambertian(Lambertian::new_from_texture(Arc::clone(&perlin_tex), 1.0)),
+    ));
+
+    let light = Hittables::Quad(Quad::new(
+        Point3::new(3.0, 1.0, -2.0),
+        Point3::new(2.0, 0.0, 0.0),
+        Point3::new(0.0, 2.0, 0.0),
+        diff_light,
+    ));
+
+    scene.add_element(ground, "ground");
+    scene.add_element(orb, "orb");
+    scene.add_element(light, "light");
 
     scene
 }
